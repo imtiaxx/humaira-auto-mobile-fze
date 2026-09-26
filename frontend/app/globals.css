@@ -1,10 +1,11 @@
 /* ==========================================================================
-   Humera Automobile - global styles and design tokens
+   Humera Automobile - design tokens, base styles and utilities
    ==========================================================================
 
    Tailwind CSS v4 is CSS-first: tokens are declared here with `@theme` and
-   Tailwind generates the matching utilities (`bg-ink-900`, `text-accent-400`,
-   `rounded-card`, ...). There is deliberately no `tailwind.config.js`.
+   Tailwind generates the matching utilities (`bg-ink-900`, `text-h2`,
+   `rounded-card`, `py-section`, ...). There is deliberately no
+   `tailwind.config.js`.
 
    Design direction
    ----------------
@@ -21,20 +22,39 @@
      rounded cards read as consumer-app, not as a premium marque.
    - No gradients on text or surfaces, no glassmorphism, no neon.
 
-   Every colour pairing below has been chosen to clear WCAG AA contrast
-   (4.5:1 for body text, 3:1 for large text and UI boundaries) against the
-   surface it is intended to sit on.
+   Three layers, and the order matters
+   -----------------------------------
+   1. Raw ramps   - `--color-ink-*`, `--color-accent-*`, `--color-success-*`.
+                    Reference values. Never referenced by a component.
+   2. Semantic    - `--surface-*`, `--text-*`, `--border-*`, `--action-*`.
+                    Scheme-aware, defined once per colour scheme below.
+   3. Utilities   - `--color-page`, `--color-fg`, ... in `@theme inline`, which
+                    is what turns layer 2 into `bg-page` / `text-fg`.
+
+   A component only ever touches layer 3, so re-theming the site is a change to
+   layer 2 and never to component code.
+
+   Every foreground/background pairing used by the component library is checked
+   against WCAG AA (4.5:1 body text, 3:1 large text and UI boundaries) in both
+   colour schemes by `scripts/check-contrast.mjs`.
    ========================================================================== */
 
 @import "tailwindcss";
 
 /* --------------------------------------------------------------------------
-   Raw palettes
+   Raw ramps
    --------------------------------------------------------------------------
    Reference values only. Components should prefer the semantic tokens below so
    that a theme change never requires touching component code.
+
+   `static` is deliberate. Without it Tailwind tree-shakes any theme variable no
+   component happens to reference today, which means the token set silently
+   changes shape depending on which pages exist. For a design system the token
+   list is a contract that other people code against and that is documented in
+   `docs/design-system.md`, so every token is emitted whether or not it is in use
+   yet. The cost is a few kilobytes of custom properties.
    -------------------------------------------------------------------------- */
-@theme {
+@theme static {
   /* Graphite / ink. Slightly blue-shifted so it reads as metal, not brown. */
   --color-ink-50: #f6f7f9;
   --color-ink-100: #eceef1;
@@ -62,29 +82,60 @@
   --color-accent-900: #513a26;
   --color-accent-950: #2e2015;
 
-  /* Status. Each has a matching `-surface` and `-content` pair defined under
-     semantic tokens so a badge never hard-codes a background. */
+  /* Status ramps. Each has 100 (surface), 500 (default), 600/700 (interactive
+     and text) and 800 (pressed) so a button or badge built on a status colour
+     has a real hover and active state instead of an opacity hack. */
   --color-success-100: #dcf5e6;
   --color-success-500: #17794a;
+  --color-success-600: #126a41;
   --color-success-700: #0f5c37;
+  --color-success-800: #0b4429;
   --color-warning-100: #fdf0d5;
   --color-warning-500: #a16207;
+  --color-warning-600: #8a5506;
   --color-warning-700: #7c4a05;
+  --color-warning-800: #5f3804;
   --color-danger-100: #fde4e4;
   --color-danger-500: #c02626;
+  --color-danger-600: #a81f1f;
   --color-danger-700: #961b1b;
+  --color-danger-800: #7a1414;
   --color-info-100: #dfeafb;
   --color-info-500: #1f5fa9;
+  --color-info-600: #1a4f8f;
   --color-info-700: #17487f;
+  --color-info-800: #103460;
+
+  /* Breakpoints. Mobile-first: the unprefixed size is the base, and every
+     utility in the system is written to work at 360px before any prefix is
+     applied. These mirror Tailwind's defaults and are restated here so the
+     responsive strategy is documented in one place.
+
+         base   < 640px   mobile
+         sm     >= 640px  large mobile / small tablet
+         md     >= 768px  tablet
+         lg     >= 1024px desktop
+         xl     >= 1280px large desktop
+         2xl    >= 1536px wide desktop
+     Content stops widening at `xl`, which is where `container-page` reaches its
+     maximum - beyond that, extra width is given to the gutters, not the text. */
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+  --breakpoint-2xl: 96rem;
 
   /* Typography ---------------------------------------------------------- */
   --font-sans:
-    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    sans-serif;
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display:
     var(--font-sora), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
 
-  /* Modular type scale (1.250 major third). Fluid between 360px and 1280px. */
+  /* Numeric scale (1.250 major third). Kept from the foundation step so that
+     generic `text-sm` / `text-xl` utilities keep working. New component code
+     should use the named scale below, which pairs a size with its line height,
+     tracking and weight so a single utility is typographically complete. */
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
@@ -94,12 +145,79 @@
   --text-3xl: clamp(1.875rem, 1.6rem + 1.375vw, 2.5rem);
   --text-4xl: clamp(2.25rem, 1.8rem + 2.25vw, 3.5rem);
 
+  /* Named type scale. One token per role in the interface, so a page never has
+     to guess a size. Fluid values are capped so that headings do not become
+     unreadable on a 27" monitor, and the minimums stay comfortable at 360px.
+
+     Tailwind v4 lets a `--text-*` token carry its own line height, tracking and
+     weight via `--text-<name>--*`. Using that here means `text-h2` is a
+     complete typographic decision rather than a bare font size that callers
+     then have to complete with three more classes. */
+  --text-display: clamp(2.5rem, 1.9rem + 3vw, 4.25rem);
+  --text-display--line-height: 1.04;
+  --text-display--letter-spacing: -0.03em;
+  --text-display--font-weight: 600;
+
+  --text-h1: clamp(2rem, 1.6rem + 2vw, 3rem);
+  --text-h1--line-height: 1.1;
+  --text-h1--letter-spacing: -0.025em;
+  --text-h1--font-weight: 600;
+
+  --text-h2: clamp(1.625rem, 1.42rem + 1.05vw, 2.25rem);
+  --text-h2--line-height: 1.15;
+  --text-h2--letter-spacing: -0.02em;
+  --text-h2--font-weight: 600;
+
+  --text-h3: clamp(1.3125rem, 1.2rem + 0.55vw, 1.625rem);
+  --text-h3--line-height: 1.25;
+  --text-h3--letter-spacing: -0.015em;
+  --text-h3--font-weight: 600;
+
+  --text-h4: 1.1875rem;
+  --text-h4--line-height: 1.3;
+  --text-h4--letter-spacing: -0.01em;
+  --text-h4--font-weight: 600;
+
+  --text-body-lg: 1.0625rem;
+  --text-body-lg--line-height: 1.65;
+
+  --text-body: 1rem;
+  --text-body--line-height: 1.6;
+
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.55;
+
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.45;
+
+  /* Small, wide-tracked, uppercase. Section eyebrows and table headers only -
+     never for running text, and never below 12px. */
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.2;
+  --text-label--letter-spacing: 0.14em;
+  --text-label--font-weight: 600;
+
+  --text-btn: 0.875rem;
+  --text-btn--line-height: 1;
+  --text-btn--letter-spacing: 0.005em;
+  --text-btn--font-weight: 600;
+
   --leading-tight: 1.15;
   --leading-snug: 1.35;
   --leading-normal: 1.6;
 
-  /* Spacing scale. 4px base grid, named so layouts read consistently. */
+  /* Spacing. A 4px base grid. Every gap, pad and margin in the system is a
+     multiple of it, which is what keeps unrelated sections aligning. */
   --spacing: 0.25rem;
+
+  /* Named spacing roles. Using these instead of one-off rem values is how a
+     page section ends up the same height on every route. */
+  --spacing-gutter: 1.25rem;
+  --spacing-section: 3.5rem;
+  --spacing-section-lg: 5rem;
+  --spacing-section-xl: 7rem;
+  --spacing-block: 1.5rem;
+  --spacing-block-lg: 2.5rem;
 
   /* Radii. Deliberately small: automotive surfaces are angular. */
   --radius-xs: 2px;
@@ -112,22 +230,58 @@
   /* Elevation. Low-contrast, cool-tinted. Avoids the "floating card" look. */
   --shadow-xs: 0 1px 2px 0 rgb(14 17 22 / 0.06);
   --shadow-sm: 0 1px 3px 0 rgb(14 17 22 / 0.08), 0 1px 2px -1px rgb(14 17 22 / 0.06);
-  --shadow-md: 0 4px 12px -2px rgb(14 17 22 / 0.10), 0 2px 4px -2px rgb(14 17 22 / 0.06);
+  --shadow-md: 0 4px 12px -2px rgb(14 17 22 / 0.1), 0 2px 4px -2px rgb(14 17 22 / 0.06);
   --shadow-lg: 0 12px 28px -6px rgb(14 17 22 / 0.14), 0 4px 8px -4px rgb(14 17 22 / 0.08);
 
-  /* Motion. One easing curve, two durations. No decorative animation. */
+  /* Motion. Two curves, three durations, nothing else. Durations are short
+     enough that a slow device feels responsive rather than sluggish, and long
+     enough that the change is legible. `prefers-reduced-motion` collapses all
+     of them to near-zero in the base layer. */
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
-  --animate-fade-in: fade-in 200ms var(--ease-out-soft) both;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 280ms;
+
+  /* The only animations in the system. Each is a one-shot entrance or a
+     loading affordance; none loops forever except the spinner, which is hidden
+     from assistive technology and stopped by reduced-motion. */
+  --animate-fade-in: fade-in var(--duration-base) var(--ease-out-soft) both;
+  --animate-fade-up: fade-up var(--duration-slow) var(--ease-out-soft) both;
+  --animate-skeleton: skeleton 1.4s var(--ease-standard) infinite;
+  --animate-spin-slow: spin 900ms linear infinite;
 }
 
 @keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* Skeleton placeholder. A travelling highlight rather than a pulsing opacity,
+   because a slow opacity pulse is the single most common way a loading state
+   ends up looking amateurish. */
+@keyframes skeleton {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
   }
 }
 
@@ -145,21 +299,53 @@
   --surface-raised: #ffffff;
   --surface-sunken: var(--color-ink-100);
   --surface-inverse: var(--color-ink-950);
+  /* Dropdowns, dialogs and popovers. Separated from `--surface-raised` so an
+     overlay can be introduced later without re-tuning every card. */
+  --surface-overlay: #ffffff;
+  /* Form control fill. Pure white in light mode so inputs read as writable
+     fields against the grey page, not as disabled surfaces. */
+  --surface-field: #ffffff;
 
   --border-subtle: var(--color-ink-200);
   --border-default: var(--color-ink-300);
   --border-strong: var(--color-ink-400);
+  /* Form control borders have to clear WCAG 1.4.11 (3:1 non-text contrast) to
+     be identifiable as interactive, which `--border-default` does not manage on
+     a light fill. This is the one border weight chosen for that requirement
+     rather than for visual hierarchy.
+
+     Invariant: form controls apply `bg-field` themselves, so the surface a
+     control border is ever measured against is `--surface-field`, never the
+     surface it happens to be nested in. That is what allows this token to stay
+     as light as it is. Do not set a control background from a parent. */
+  --border-control: var(--color-ink-400);
+  --border-inverse: rgb(255 255 255 / 0.14);
 
   --text-primary: var(--color-ink-950);
   --text-secondary: var(--color-ink-600);
   --text-muted: var(--color-ink-500);
   --text-inverse: var(--color-ink-50);
   --text-accent: var(--color-accent-700);
+  /* Text that sits on a filled brass surface. Always near-black: dark type on
+     gold is both higher contrast than white-on-gold and the more traditional
+     automotive treatment. */
+  --text-on-accent: var(--color-ink-950);
 
   --action-primary: var(--color-ink-950);
   --action-primary-hover: var(--color-ink-800);
-  --action-accent: var(--color-accent-600);
-  --action-accent-hover: var(--color-accent-700);
+  --action-primary-content: var(--color-ink-50);
+
+  --action-accent: var(--color-accent-500);
+  --action-accent-hover: var(--color-accent-400);
+  --action-accent-content: var(--color-ink-950);
+
+  --action-danger: var(--color-danger-700);
+  --action-danger-hover: var(--color-danger-800);
+  --action-danger-content: #ffffff;
+
+  /* Keyboard focus. A single token so the ring is identical on a button, an
+     input and a card, and so it can be retuned for forced-colors mode. */
+  --ring-focus: var(--color-accent-600);
 
   --status-success-surface: var(--color-success-100);
   --status-success-content: var(--color-success-700);
@@ -181,21 +367,40 @@
     --surface-raised: var(--color-ink-950);
     --surface-sunken: var(--color-ink-900);
     --surface-inverse: var(--color-ink-50);
+    --surface-overlay: var(--color-ink-900);
+    --surface-field: var(--color-ink-950);
 
     --border-subtle: var(--color-ink-800);
     --border-default: var(--color-ink-700);
     --border-strong: var(--color-ink-600);
+    /* Dark fills need a *lighter* border to reach the same 3:1, so this
+     inverts direction relative to the light scheme. */
+    --border-control: var(--color-ink-500);
+    --border-inverse: rgb(0 0 0 / 0.2);
 
     --text-primary: var(--color-ink-50);
     --text-secondary: var(--color-ink-300);
     --text-muted: var(--color-ink-400);
     --text-inverse: var(--color-ink-950);
     --text-accent: var(--color-accent-300);
+    --text-on-accent: var(--color-ink-950);
 
     --action-primary: var(--color-ink-50);
     --action-primary-hover: var(--color-ink-200);
+    --action-primary-content: var(--color-ink-950);
+
+    /* Lighter brass in dark mode, still with near-black type: the gold has to
+       brighten to stay visible on a near-black page, and dark type keeps the
+       contrast ratio rising rather than falling. */
     --action-accent: var(--color-accent-400);
     --action-accent-hover: var(--color-accent-300);
+    --action-accent-content: var(--color-ink-950);
+
+    --action-danger: var(--color-danger-600);
+    --action-danger-hover: var(--color-danger-500);
+    --action-danger-content: #ffffff;
+
+    --ring-focus: var(--color-accent-400);
 
     --status-success-surface: color-mix(in oklab, var(--color-success-500) 18%, transparent);
     --status-success-content: var(--color-success-100);
@@ -216,15 +421,33 @@
   --color-raised: var(--surface-raised);
   --color-sunken: var(--surface-sunken);
   --color-inverse: var(--surface-inverse);
+  --color-overlay: var(--surface-overlay);
+  --color-field: var(--surface-field);
 
   --color-line: var(--border-subtle);
   --color-line-strong: var(--border-default);
+  --color-line-control: var(--border-control);
+  --color-line-inverse: var(--border-inverse);
 
   --color-fg: var(--text-primary);
   --color-fg-secondary: var(--text-secondary);
   --color-fg-muted: var(--text-muted);
   --color-fg-inverse: var(--text-inverse);
   --color-fg-accent: var(--text-accent);
+  --color-fg-on-accent: var(--text-on-accent);
+
+  /* Action surfaces. Exposed separately from the status ramps because a filled
+     control needs a guaranteed-contrast content colour paired with it, which a
+     `text-danger` badge token (tuned to sit on a tint) is not. */
+  --color-action-primary: var(--action-primary);
+  --color-action-primary-hover: var(--action-primary-hover);
+  --color-action-primary-content: var(--action-primary-content);
+  --color-action-accent: var(--action-accent);
+  --color-action-accent-hover: var(--action-accent-hover);
+  --color-action-accent-content: var(--action-accent-content);
+  --color-action-danger: var(--action-danger);
+  --color-action-danger-hover: var(--action-danger-hover);
+  --color-action-danger-content: var(--action-danger-content);
 
   --color-success: var(--status-success-content);
   --color-success-surface: var(--status-success-surface);
@@ -264,7 +487,9 @@
   h1,
   h2,
   h3,
-  h4 {
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-display);
     line-height: var(--leading-tight);
     letter-spacing: -0.015em;
@@ -275,15 +500,40 @@
     text-wrap: pretty;
   }
 
+  /* Long-form copy (a vehicle description, an export policy) is capped so the
+     measure stays readable instead of running the full width of a monitor. */
+  :where(main) {
+    --container-prose: 68ch;
+  }
+
   /* Visible, high-contrast focus for keyboard users on every interactive
-     element. Never removed - only restyled. */
+     element. Never removed - only restyled. Declared with `:focus-visible` so
+     a mouse click does not leave a ring behind, and drawn with `outline` so it
+     survives Windows High Contrast Mode, where `box-shadow` disappears. */
   :focus-visible {
-    outline: 2px solid var(--action-accent);
+    outline: 2px solid var(--ring-focus);
     outline-offset: 2px;
     border-radius: var(--radius-xs);
   }
 
-  /* Respect users who ask for less motion. */
+  /* Form controls inherit the type system instead of the browser's default. */
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* Placeholder text is a hint, never a label. */
+  ::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+  }
+
+  /* Respect users who ask for less motion. This neutralises every animation and
+     transition in the system, including ones added later, so no future
+     component can accidentally opt out. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -304,10 +554,18 @@
 /* --------------------------------------------------------------------------
    Utilities
    -------------------------------------------------------------------------- */
+
+/**
+ * The page container. Every route renders its content inside one of these, so
+ * the horizontal rhythm is identical site-wide. Width is capped at 80rem
+ * (1280px) and the gutters grow at `md` and again at `xl`, which keeps line
+ * lengths comfortable on a 27" display without introducing a second breakpoint
+ * for wide content.
+ */
 @utility container-page {
   width: 100%;
   margin-inline: auto;
-  padding-inline: 1.25rem;
+  padding-inline: var(--spacing-gutter);
   max-width: 80rem;
 
   @media (width >= 48rem) {
@@ -315,11 +573,50 @@
   }
 
   @media (width >= 80rem) {
-    padding-inline: 2.5rem;
+    padding-inline: var(--spacing-section);
   }
 }
 
-/* Hairline divider used between list rows and section boundaries. */
+/**
+ * Reading-measure container for long-form copy. Nested sizing is avoided: the
+ * outer page container controls the page rhythm, this controls the line length.
+ */
+@utility container-prose {
+  width: 100%;
+  max-width: 68ch;
+}
+
+/**
+ * Vertical rhythm for a top-level page section. Using this rather than an
+ * ad-hoc `py-16 md:py-24` in every route is what keeps section heights
+ * consistent as the site grows.
+ */
+@utility section-y {
+  padding-block: var(--spacing-section);
+
+  @media (width >= 48rem) {
+    padding-block: var(--spacing-section-lg);
+  }
+
+  @media (width >= 80rem) {
+    padding-block: var(--spacing-section-xl);
+  }
+}
+
+/** Hairline rules. Borders, not shadows, are how this design separates things. */
 @utility rule-top {
   border-top: 1px solid var(--border-subtle);
+}
+
+@utility rule-bottom {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/**
+ * Tabular figures. Applied to anything that should line up in a column -
+ * prices, mileage, dates, engine output. Proportional digits in a spec sheet
+ * read as sloppy.
+ */
+@utility tnum {
+  font-variant-numeric: tabular-nums;
 }

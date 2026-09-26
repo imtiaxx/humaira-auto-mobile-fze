@@ -1,28 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Sora } from "next/font/google";
 
+import { inter, sora } from "@/app/fonts";
 import "./globals.css";
 
 /**
- * Fonts are self-hosted by `next/font`, which removes the render-blocking
- * request to Google and eliminates the privacy leak of sending every visitor's
- * IP to a third party. `display: "swap"` shows fallback metrics-compatible text
- * immediately instead of a blank block.
+ * Fonts are loaded from files committed to this repository via
+ * `next/font/local` - see `app/fonts.ts` for why. The practical consequences:
+ * no third-party request at build time or at runtime, no visitor IP is leaked
+ * to a font host, and the build cannot fail because a CDN is down.
  *
- * `variable` exposes each family as a CSS custom property, which
- * `globals.css` maps onto the `--font-sans` / `--font-display` theme tokens.
+ * `display: "swap"` paints fallback text immediately instead of blocking on
+ * the font, and `adjustFontFallback` keeps that fallback metric-compatible so
+ * the swap does not shift the layout.
+ *
+ * `variable` exposes each family as a CSS custom property, which `globals.css`
+ * maps onto the `--font-sans` / `--font-display` theme tokens.
  */
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-inter",
-});
-
-const sora = Sora({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-sora",
-});
 
 const SITE_NAME = "Humera Automobile";
 const SITE_DESCRIPTION =

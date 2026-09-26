@@ -2,22 +2,26 @@
 
 Next.js 16 (App Router), React 19, TypeScript strict, Tailwind CSS v4.
 
-**This is Step 1 of the project: technical foundation only.** The public
-website, vehicle inventory and enquiry flows are not built yet.
+**Status: Step 2 - design system.** The reusable visual language, component
+library, and `/system/design` showcase are in place. The public website, vehicle
+inventory and enquiry flows are not built yet.
 
 Full setup instructions, architecture rationale and status are in the
 [repository README](../README.md). This file is a short reference for working
-in `frontend/` specifically.
+in `frontend/` specifically. The design tokens, component APIs and usage rules
+are documented in [docs/design-system.md](../docs/design-system.md).
 
 ## Commands
 
 ```bash
 npm install
-npm run dev          # http://localhost:3000
-npm run build        # production build
-npm start            # serve the production build
-npm run typecheck    # tsc --noEmit
-npm run lint         # eslint
+npm run dev             # http://localhost:3000
+npm run build           # production build
+npm start               # serve the production build
+npm run typecheck       # tsc --noEmit
+npm run lint            # eslint
+npm run check:contrast  # WCAG AA audit of every token pairing, light + dark
+npm run verify          # all four of the above
 ```
 
 ## Environment
@@ -35,20 +39,32 @@ never put a secret in one, and rebuild after changing one.
 | Path | Contents |
 | --- | --- |
 | `app/` | Routes, layouts, error/loading boundaries, `globals.css` |
+| `app/system/design/` | Internal, `noindex` design-system showcase |
+| `app/fonts.ts` | `next/font/local` loaders for the self-hosted Inter and Sora files |
 | `components/ui/` | Reusable presentational primitives |
+| `components/icons.ts` | The only place `lucide-react` may be imported from |
 | `features/` | One folder per feature, with its own components and logic |
+| `features/design-system/` | Showcase sections rendered from the real components |
+| `fonts/` | Vendored WOFF2 subsets and the OFL licence |
 | `lib/api/` | The only place `fetch` is called |
 | `lib/env.ts` | Validated environment access |
+| `scripts/check-contrast.mjs` | Token contrast audit run by `npm run check:contrast` |
 | `types/` | Types mirroring the backend contract |
 
 ## Conventions
 
 - Server Components by default. `'use client'` only for real interactivity.
 - Components never call `fetch` - add a typed wrapper in `lib/api/`.
-- Use the semantic design tokens (`bg-page`, `text-fg-secondary`, `border-line`,
-  `rounded-card`) rather than raw palette values, so theming stays a token swap.
+- Use the semantic design tokens (`bg-page`, `text-fg-secondary`,
+  `border-line`, `rounded-card`) rather than raw palette values, so theming stays
+  a token swap.
+- Keep `"use client"` off modules that only export class-name recipes.
+  `components/ui/button-styles.ts` is separate from `button.tsx` precisely so
+  Server Components can call `buttonClasses()`; merging them breaks the build.
+- Icons come from `components/icons.ts`, never from `lucide-react` directly.
+- A `<button>` does things, a link navigates. Use `ActionLink` for navigation.
 - The brass accent marks one primary action per view. It is not decoration.
-- `npm run typecheck` and `npm run lint` must pass before a change is done.
+- `npm run verify` must pass before a change is done.
 
 ## Next.js 16 notes
 

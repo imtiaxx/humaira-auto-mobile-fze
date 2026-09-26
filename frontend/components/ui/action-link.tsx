@@ -1,45 +1,56 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
-import { cn } from "@/lib/cn";
+import {
+  buttonClasses,
+  type ButtonSize,
+  type ButtonVariant,
+} from "@/components/ui/button-styles";
 
-export type ActionTone = "primary" | "accent" | "outline" | "ghost";
+export type ActionTone = ButtonVariant;
+export type ActionSize = ButtonSize;
 
-const BASE =
-  "inline-flex items-center justify-center gap-2 rounded-sm px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ease-(--ease-out-soft) disabled:pointer-events-none disabled:opacity-55";
+type NativeLinkProps = Omit<ComponentProps<typeof Link>, "className" | "children">;
 
-const TONES: Record<ActionTone, string> = {
-  // Near-black. The default for anything that must not compete for attention.
-  primary: "bg-inverse text-fg-inverse hover:bg-ink-800",
-  // Brass. Exactly one per view - the primary conversion action.
-  accent: "bg-accent-600 text-white hover:bg-accent-700",
-  outline: "border border-line-strong bg-transparent text-fg hover:bg-sunken",
-  ghost: "text-fg-secondary hover:bg-sunken hover:text-fg",
+export type ActionLinkProps = NativeLinkProps & {
+  variant?: ButtonVariant;
+  /** @deprecated Use `variant`. */
+  tone?: ButtonVariant;
+  size?: ButtonSize;
+  className?: string;
+  children: ReactNode;
 };
-
-export function actionClasses(tone: ActionTone = "primary", className?: string): string {
-  return cn(BASE, TONES[tone], className);
-}
 
 /**
  * Link styled as a button.
  *
  * A link is used rather than a `<button>` whenever the action navigates, which
- * keeps middle-click, "open in new tab" and keyboard behaviour correct.
+ * keeps middle-click, "open in new tab" and keyboard behaviour correct. The
+ * styling is imported from the button recipes rather than duplicated, so a
+ * variant can never mean one thing on a button and another on a link.
+ *
+ * `tone` is the historical name for `variant`; both are accepted so existing
+ * Step 1 call sites keep working.
  */
 export function ActionLink({
-  tone = "primary",
+  variant,
+  tone,
+  size = "md",
   className,
   children,
   ...props
-}: {
-  tone?: ActionTone;
-  className?: string;
-  children: ReactNode;
-} & Omit<ComponentProps<typeof Link>, "className">) {
+}: ActionLinkProps) {
   return (
-    <Link className={actionClasses(tone, className)} {...props}>
+    <Link className={buttonClasses(variant ?? tone ?? "primary", size, className)} {...props}>
       {children}
     </Link>
   );
 }
+
+/**
+ * Classes for a link that has to look like a button but cannot be a
+ * `next/link` - an external origin, for example the API reference on the
+ * foundation page. Kept as a named export because Step 1 call sites use it
+ * directly on a plain `<a>`.
+ */
+export const actionClasses = buttonClasses;
