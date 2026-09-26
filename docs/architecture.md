@@ -100,14 +100,30 @@ confused - a distinction that matters when a customer submits an enquiry form.
 ```
 app/
 ├── layout.tsx            root layout: <html>/<body>, fonts, metadata
-├── page.tsx              technical placeholder (NOT the homepage)
+├── page.tsx              homepage
 ├── error.tsx             route error boundary (Next 16 `retry` API)
 ├── global-error.tsx      root-layout fallback; owns its <html>/<body>
 ├── not-found.tsx         404
+├── inventory/            vehicles / inventory page (customer-facing)
+│   └── page.tsx
+├── system/design/        design-system showcase (developer-facing)
+│   └── page.tsx
 └── system-status/        live diagnostic page
     ├── page.tsx
     └── loading.tsx
 ```
+
+`/inventory` is the vehicles route. It is `/inventory` and not `/vehicles`
+because `navigation/config.ts` already declares the destination under that name
+and path - the primary nav item is `label: "Inventory"`, and the footer's
+"Vehicles" *group* contains an "Inventory" entry pointing at the same path. The
+route follows the config rather than introducing a second URL for one page.
+
+It renders from `features/vehicles/`, whose data flows from a single function,
+`listVehicles()`. That function currently returns an empty array, so the page
+renders a designed empty state; when the `Vehicle` schema in section 5 is agreed
+it becomes the one place that changes. `types/vehicle.ts` mirrors that planned
+schema so the frontend shape and the database shape cannot drift.
 
 `/system-status` is a developer diagnostic, not a customer feature. It calls the
 real health endpoints and shows real values. It exists to prove the transport

@@ -82,10 +82,15 @@ export type NavGroup = {
 export const PRIMARY_NAV: NavItem[] = [
   { label: "Home", status: "live", href: "/" },
   {
+    // Step 7: promoted from `planned` to `live`. `/inventory` is a real route
+    // now (`app/inventory/page.tsx`), so this is a real link - and the `Route`
+    // type means the compiler has just verified the path exists. The label is
+    // unchanged: "Inventory" is what this site has always called this
+    // destination in the header and the footer, and renaming it here would break
+    // the vocabulary the rest of the IA is built on.
     label: "Inventory",
-    status: "planned",
-    path: "/inventory",
-    note: "Vehicle inventory is not built yet",
+    status: "live",
+    href: "/inventory",
   },
   {
     label: "Brands",
@@ -147,7 +152,9 @@ export const FOOTER_NAV: NavGroup[] = [
     id: "vehicles",
     title: "Vehicles",
     items: [
-      { label: "Inventory", status: "planned", path: "/inventory", note: "Not built yet" },
+      // Step 7: promoted to `live` alongside the primary nav item, so the
+      // header and this group resolve to the same real route.
+      { label: "Inventory", status: "live", href: "/inventory" },
       { label: "Brands", status: "planned", path: "/brands", note: "Not built yet" },
       { label: "Compare Cars", status: "planned", path: "/compare", note: "Not built yet" },
     ],
