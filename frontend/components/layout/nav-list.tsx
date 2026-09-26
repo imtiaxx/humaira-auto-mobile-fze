@@ -111,7 +111,24 @@ export function NavList({
                 title={item.note}
                 aria-disabled="true"
                 data-status="planned"
-                className={cn("block truncate text-fg-muted/70", VARIANT_PLANNED[variant])}
+                // Step 6: `text-fg-muted/70` -> `text-fg-muted`.
+                //
+                // The 70% alpha is what made these labels unreadable rather than
+                // quiet. Composited, it measured ~2.4:1 in the header and ~2.6:1
+                // in the footer - both far under the 4.5:1 that WCAG 1.4.3
+                // requires, and the contrast audit could not catch it because
+                // `color-mix` of a token over another token is not a pairing the
+                // script resolves.
+                //
+                // Dropping the alpha rather than stepping up to
+                // `text-fg-secondary` is deliberate. `VARIANT_PLANNED` carries
+                // only padding, so this dimming is the *entire* visual signal
+                // that an item cannot be clicked; matching the real links'
+                // colour would make dead items look live. `text-fg-muted` is
+                // still a clear step below `text-fg-secondary`, and it now
+                // measures 4.6:1 in the header, 4.9:1 in the drawer and 6.2:1 on
+                // the deep footer.
+                className={cn("block truncate text-fg-muted", VARIANT_PLANNED[variant])}
               >
                 {item.label}
               </span>

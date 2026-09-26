@@ -106,6 +106,11 @@ export function ServiceHighlights() {
       // link move focus instead of leaving the next Tab back at the top of the
       // page, so the section announces itself rather than scrolling silently.
       tabIndex={-1}
+      // Step 6: this section stays on the light canvas on purpose. It is the
+      // pale breath between two deep ones - the hero above and the conversion
+      // panel below - and that alternation is what stops a page with no
+      // photography from reading as one long undifferentiated block. The hairline
+      // is what carries the transition; the colour change does the rest.
       className="scroll-mt-24 overflow-hidden border-t border-line bg-sunken focus:outline-none"
     >
       <Container className="py-16 sm:py-20 lg:py-28">
@@ -115,16 +120,24 @@ export function ServiceHighlights() {
           description="Humera Automobile handles both halves of buying a vehicle in Dubai: the car itself, and getting it to the country you are buying from."
         />
 
-        <ul className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {SERVICES.map(({ id, title, label, body, icon: Icon }) => (
             <li key={id} className="flex">
               <Surface
                 as="article"
-                className="flex w-full flex-col gap-3 rounded-card border-line p-6"
+                className="flex w-full flex-col gap-4 rounded-card border-line p-6"
               >
+                {/*
+                  Step 6: the icon plate is a flat bordered square rather than a
+                  filled one. A tinted plate put four small blocks of colour in
+                  the middle of an otherwise monochrome block, which competed
+                  with the section heading for attention. Outlined, in the accent
+                  tone, it reads as a considered marker and gives each card a
+                  recognisable anchor point without adding a second colour.
+                */}
                 <span
                   aria-hidden="true"
-                  className="inline-flex size-10 items-center justify-center rounded-card border border-line-strong text-fg-accent"
+                  className="inline-flex size-10 items-center justify-center rounded-sm border border-line text-fg-accent"
                 >
                   <Icon className="size-5" />
                 </span>
@@ -140,9 +153,23 @@ export function ServiceHighlights() {
           ))}
         </ul>
 
+        {/*
+          Step 6: the conversion panel moves onto the deep canvas.
+
+          This is the one panel on the page whose entire job is to be acted on,
+          so it now sits on the same near-black as the hero and the brass CTA
+          gains the strongest contrast pairing available on the site. Placing it
+          at the end of the light section also gives the page a deliberate shape
+          - dark arrival, light information, dark action - rather than three
+          stacked boxes that happen to share a border.
+
+          The `on-inverse` scope does the work: the heading, the paragraph and
+          the shared `WhatsAppCta` below are unchanged code and simply resolve
+          against the deep tokens.
+        */}
         <Surface
           as="div"
-          className="mt-12 flex flex-col gap-6 rounded-card border-line-strong bg-raised p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10"
+          className="on-inverse mt-12 flex flex-col gap-6 rounded-card border-line bg-page p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10"
         >
           <div className="flex max-w-2xl flex-col gap-2">
             <h3 className="text-h3 text-fg">Not sure which one applies?</h3>

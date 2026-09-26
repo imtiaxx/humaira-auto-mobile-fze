@@ -65,6 +65,30 @@ const light = tokens(block(":root"));
 const dark = tokens(block("@media (prefers-color-scheme: dark)"));
 const semantic = tokens(block("@theme inline"));
 
+/**
+ * The scoped deep surface from `@utility on-inverse`.
+ *
+ * Audited as a full third scheme rather than spot-checked. The hero, the
+ * conversion panel and the footer all sit on this canvas, and they reuse the
+ * same component code as the light regions - so the pairings that appear on it
+ * are exactly the pairings in PAIRS, not a short hand-picked subset. Treating
+ * it as a scheme rather than adding a few ad-hoc assertions is what guarantees
+ * a future component dropped into the deep surface cannot introduce an
+ * unverified foreground/background combination.
+ */
+const inverse = tokens(block("@utility on-inverse"));
+
+/**
+ * `light` is layered *under* `inverse` on purpose.
+ *
+ * A scoped custom property does not replace the cascade, it overrides part of
+ * it: everything the utility does not name keeps resolving from `:root`, and
+ * only the names it does list are swapped. Merging in the other order - scope
+ * over a bare root - would report unresolved tokens for anything the scope
+ * leaves alone (the status ramp, for instance), which is a gap in the model
+ * rather than a gap in the stylesheet. This order is what the browser does.
+ */
+
 /** `rgb(0 0 0 / 0.5)` and `#rrggbbaa` both carry alpha. */
 function parseColor(input) {
   const value = input.trim();
@@ -94,6 +118,12 @@ function parseColor(input) {
 }
 
 function schemeTokens(scheme) {
+  // The one thing that makes `inverse` different from the other two is what it
+  // layers under: it sits on the `light` baseline, not `dark`, because the
+  // utility is a scope a component opts into on either OS scheme rather than a
+  // preference the user set. See the note above `inverse` for why the light
+  // baseline has to stay in the merge.
+  if (scheme === "inverse") return { ...raw, ...light, ...semantic, ...inverse };
   return { ...raw, ...semantic, ...(scheme === "dark" ? dark : light) };
 }
 
@@ -231,7 +261,7 @@ const MIN = { text: 4.5, large: 3, ui: 3, decorative: 0 };
 let failures = 0;
 const rows = [];
 
-for (const scheme of ["light", "dark"]) {
+for (const scheme of ["light", "dark", "inverse"]) {
   const page = resolve("--surface-page", scheme);
   const raised = resolve("--surface-raised", scheme);
 
@@ -277,7 +307,7 @@ console.log("");
 const required = rows.filter((r) => r.pair.kind !== "decorative").length;
 console.log(
   failures === 0
-    ? `All ${required} required pairings pass WCAG AA in both colour schemes (${rows.length - required} decorative separators reported for information).`
+    ? `All ${required} required pairings pass WCAG AA across the light, dark and inverse canvases (${rows.length - required} decorative separators reported for information).`
     : `${failures} of ${required} required pairings FAIL.`,
 );
 

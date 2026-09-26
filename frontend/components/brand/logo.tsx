@@ -58,6 +58,16 @@ const WORDMARK_SIZES: Record<BrandSize, string> = {
  *
  * The accent is a border, not a fill. A filled brass tile at this size would put
  * the strongest colour in the system on the least important element.
+ *
+ * Step 6: the monogram's colour was `text-accent-600 dark:text-accent-400` - a
+ * `dark:` variant, which is the one part of this design system that was not
+ * token-driven. It happened to be right in the header, and wrong twice over in
+ * the deep-surface footer: on near-black `accent-600` measures 4.50:1, which is
+ * exactly at the AA threshold for the 12px type it carries and therefore has no
+ * margin at all, and the `dark:` variant cannot see that the footer is dark
+ * because the OS is not. `text-fg-accent` follows the semantic layer instead, so
+ * one class now serves the light header, the deep footer, and the light *and*
+ * dark schemes - four combinations from one token.
  */
 export function BrandMark({
   size = "md",
@@ -72,7 +82,7 @@ export function BrandMark({
       // must not be announced as a second, redundant label.
       aria-hidden="true"
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-xs border border-accent-500/60 font-display font-semibold leading-none tracking-[0.06em] text-accent-600 dark:text-accent-400",
+        "inline-flex shrink-0 items-center justify-center rounded-xs border border-accent-500/60 font-display font-semibold leading-none tracking-[0.06em] text-fg-accent",
         MARK_SIZES[size],
         className,
       )}

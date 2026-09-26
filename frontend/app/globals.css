@@ -153,7 +153,12 @@
      weight via `--text-<name>--*`. Using that here means `text-h2` is a
      complete typographic decision rather than a bare font size that callers
      then have to complete with three more classes. */
-  --text-display: clamp(2.5rem, 1.9rem + 3vw, 4.25rem);
+  /* Step 6: the display cap moved 4.25rem -> 4.5rem. At 1024px this lands
+     around 61px and at 1440px it pins at 72px, which is the point at which a
+     headline stops being "a large heading" and starts reading as a marque
+     statement. The floor is untouched at 2.5rem, so 320px still gets 40px and
+     the hero never needs a mobile-specific override. */
+  --text-display: clamp(2.5rem, 1.9rem + 3vw, 4.5rem);
   --text-display--line-height: 1.04;
   --text-display--letter-spacing: -0.03em;
   --text-display--font-weight: 600;
@@ -163,12 +168,12 @@
   --text-h1--letter-spacing: -0.025em;
   --text-h1--font-weight: 600;
 
-  --text-h2: clamp(1.625rem, 1.42rem + 1.05vw, 2.25rem);
-  --text-h2--line-height: 1.15;
+  --text-h2: clamp(1.75rem, 1.5rem + 1.1vw, 2.5rem);
+  --text-h2--line-height: 1.14;
   --text-h2--letter-spacing: -0.02em;
   --text-h2--font-weight: 600;
 
-  --text-h3: clamp(1.3125rem, 1.2rem + 0.55vw, 1.625rem);
+  --text-h3: clamp(1.25rem, 1.15rem + 0.5vw, 1.75rem);
   --text-h3--line-height: 1.25;
   --text-h3--letter-spacing: -0.015em;
   --text-h3--font-weight: 600;
@@ -178,8 +183,11 @@
   --text-h4--letter-spacing: -0.01em;
   --text-h4--font-weight: 600;
 
+  /* Step 6: 1.65 -> 1.7. Hero and section copy are the largest running text on
+     the site, and at 17px a 1.7 leading reads as considered rather than dense.
+     Small, but it is most of what separates "set" from "defaulted". */
   --text-body-lg: 1.0625rem;
-  --text-body-lg--line-height: 1.65;
+  --text-body-lg--line-height: 1.7;
 
   --text-body: 1rem;
   --text-body--line-height: 1.6;
@@ -191,10 +199,16 @@
   --text-caption--line-height: 1.45;
 
   /* Small, wide-tracked, uppercase. Section eyebrows and table headers only -
-     never for running text, and never below 12px. */
+     never for running text, and never below 12px.
+
+     Step 6: tracking 0.14em -> 0.16em. The eyebrows are the one place the site
+     uses letterspacing as a *voice* rather than as a fix for legibility, and
+     0.16em is where wide-set capitals stop looking like a CSS utility and start
+     looking like a masthead. Weight stays 600; Sora at 700 would go chunky at
+     12px. */
   --text-label: 0.75rem;
   --text-label--line-height: 1.2;
-  --text-label--letter-spacing: 0.14em;
+  --text-label--letter-spacing: 0.16em;
   --text-label--font-weight: 600;
 
   --text-btn: 0.875rem;
@@ -622,6 +636,100 @@
 
 @utility rule-bottom {
   border-bottom: 1px solid var(--border-subtle);
+}
+
+/**
+ * The deep surface.
+ *
+ * Until Step 6 this token system defined a near-black canvas - `--surface-inverse`,
+ * `--text-inverse`, the whole dark scheme - and then never used any of it on the
+ * homepage. Every region was a light grey: the hero was `--surface-page`, the
+ * services block was `--surface-sunken`, the footer was `--surface-sunken` again.
+ * A site with no photography and no dark surface reads as a light SaaS template,
+ * however good the type is. The deep canvas is what makes it read as an
+ * established trading company.
+ *
+ * This utility is applied to the hero, the conversion panel and the footer, and
+ * it re-points layer 2 (the semantic tokens) for that subtree only. Everything
+ * inside keeps using the same layer 3 utilities - `text-fg`, `bg-raised`,
+ * `border-line` - and simply resolves to the deep values. That is why this is one
+ * utility and not thirty edited components: a component written once works on
+ * both canvases, and re-theming the deep surface stays a change to this block.
+ *
+ * Two deliberate decisions:
+ *
+ * 1. The values reference the *raw ramps*, not the semantic layer. The deep
+ *    canvas therefore looks identical whether the OS asks for light or dark,
+ *    which is the intent: near-black is the brand's second surface, not a
+ *    response to a system setting. Deriving these from `--text-primary` etc.
+ *    would have produced an accidental second dark scheme instead.
+ *
+ * 2. `color-scheme: dark` is inherited into the subtree so that form controls,
+ *    scrollbars and the caret drawn on this canvas render dark too. Without it a
+ *    text input placed here would arrive as a white box.
+ *
+ * Every pairing below is verified by `scripts/check-contrast.mjs`, which reads
+ * this block and audits the same 33 pairings against it as a third scheme
+ * alongside light and dark. It is a checked surface, not an assumed one.
+ */
+@utility on-inverse {
+  color-scheme: dark;
+
+  /* Surfaces, one step apart, so a panel can be lifted off the base with a
+     border rather than a shadow. Shadows do not exist on near-black. */
+  --surface-page: var(--color-ink-950);
+  --surface-raised: var(--color-ink-900);
+  --surface-sunken: var(--color-ink-1000);
+  --surface-overlay: var(--color-ink-900);
+  --surface-field: var(--color-ink-900);
+
+  /* The same three text weights the light scheme uses, re-pointed at the
+     inverse end of the ramp. */
+  --text-primary: var(--color-ink-50);
+  --text-secondary: var(--color-ink-300);
+  --text-muted: var(--color-ink-400);
+  --text-accent: var(--color-accent-300);
+  --text-on-accent: var(--color-ink-950);
+
+  /* `--surface-inverse` and `--text-inverse` are deliberately *not* overridden.
+
+     They are the pair that means "invert whatever scheme is active", which is
+     meaningless inside a canvas that is always dark - and inverting them anyway
+     put near-black type on near-black, at 1.05:1. Leaving them alone keeps
+     `bg-inverse` + `text-fg-inverse` a working light-on-dark pair, which is
+     what the drawer backdrop and any future inverse banner still need. */
+
+  /* Borders run *lighter* than the light scheme's, and further than a one-step
+     inversion. A hairline tuned to read as a seam on white is invisible on
+     near-black: ink-800 on ink-900 measures 1.26:1, which is not a subtle
+     separator, it is an absent one. These three steps are spaced so each is
+     visibly distinct from the next, and `--border-control` clears the 3:1 that
+     WCAG 1.4.11 requires of an interactive boundary. */
+  --border-subtle: var(--color-ink-700);
+  --border-default: var(--color-ink-600);
+  --border-strong: var(--color-ink-500);
+  --border-control: var(--color-ink-400);
+
+  /* Actions invert cleanly: the primary becomes a light button on the dark
+     canvas, and the accent stays brass because brass is the brand, not a
+     light-mode choice. */
+  --action-primary: var(--color-ink-50);
+  --action-primary-hover: var(--color-ink-200);
+  --action-primary-content: var(--color-ink-950);
+  --action-accent: var(--color-accent-400);
+  --action-accent-hover: var(--color-accent-300);
+  --action-accent-content: var(--color-ink-950);
+
+  /* Destructive actions are not reachable from the public site yet, but the
+     token is defined so that if one ever is, it is legible here rather than
+     silently inheriting a dark red that vanishes into near-black. */
+  --action-danger: var(--color-danger-500);
+  --action-danger-hover: var(--color-danger-600);
+  --action-danger-content: var(--color-danger-100);
+
+  /* Brass focus ring, which holds its contrast against near-black without the
+     light scheme's accent-600 having to be darkened. */
+  --ring-focus: var(--color-accent-400);
 }
 
 /**

@@ -39,14 +39,21 @@ export function SiteHeader() {
     <header
       className={[
         "sticky top-0 z-30",
-        // Translucent with a blur so content scrolling underneath is softened
-        // rather than colliding with the bar. The fallback background is opaque,
-        // so a browser without `backdrop-filter` gets a solid bar - which is
-        // what most of them need anyway for legibility over arbitrary content.
-        "border-b border-line bg-page/85 backdrop-blur-md",
-        // `supports-` rather than an unconditional blur, so browsers without it
-        // do not get a translucent bar with no blur behind it.
-        "supports-[backdrop-filter]:bg-page/70",
+        // Step 6: opaque, and the translucency is gone.
+        //
+        // This bar used to be `bg-page/85 backdrop-blur-md` over a near-white
+        // page, which worked because everything under it was the same near-white.
+        // The hero is now near-black, and a translucent light bar over dark
+        // content does not soften it - it smears it, because a 15%-opacity light
+        // fill plus a blur is a fogged version of whatever passes beneath, and
+        // the headline is exactly the sort of large type that turns to mush
+        // under it.
+        //
+        // Solid also removes the glassmorphism the design direction rules out,
+        // and it is one fewer compositing layer on every scroll frame. The blur
+        // had one honest benefit - softening content sliding under the bar - and
+        // an opaque bar gets that for free by clipping it instead.
+        "border-b border-line bg-page",
       ].join(" ")}
     >
       <Container className="flex h-16 items-center justify-between gap-4 lg:h-20">

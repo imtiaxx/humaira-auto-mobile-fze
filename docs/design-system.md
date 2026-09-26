@@ -131,6 +131,12 @@ case first.
 - `section-y` - vertical section rhythm that scales with viewport.
 - `rule-top` / `rule-bottom` - standard hairline dividers.
 - `tnum` - tabular numerals.
+- `on-inverse` - re-points the semantic layer at the dark ramp for a subtree,
+  so deep surfaces reuse `bg-page` / `text-fg` / `border-line` instead of
+  dark-variant pairs. Scoped, not a scheme: the result is the deep canvas in
+  both OS schemes. It deliberately leaves `--surface-inverse` and
+  `--text-inverse` inherited, which is what keeps `on-inverse on-inverse`
+  flattening rather than inverting twice.
 
 `Stack` and `Cluster` (in `components/ui/stack.tsx`) wrap the flexbox for
 vertical and horizontal flow respectively, so gap and wrapping are decided in
@@ -142,6 +148,14 @@ Dark mode is a first-class scheme, not an afterthought: it is driven by
 `prefers-color-scheme` and is exposed to Tailwind via the `dark:` variant. Every
 token has a dark value, and the contrast script validates both. If you add a
 token, add both values or the script will tell you.
+
+The script checks a third canvas, `inverse`, which models the `on-inverse`
+utility. It is not an OS preference, so it resolves from the raw ramps with the
+light baseline beneath it, matching what the utility compiles to. A semantic
+token that looks fine on light and dark can still fail here, because the deep
+ramp needs a brighter foreground and a different step of the border ramp -
+which is the entire reason `on-inverse` restates those instead of inheriting
+them. `npm run check:contrast` fails the build on any of the three.
 
 ## Components
 

@@ -27,7 +27,18 @@ import { LEGAL_NAME, SHOWROOM_ADDRESS_LINES, SITE_NAME, SOCIAL_LINKS } from "@/c
  */
 export function SiteFooter() {
   return (
-    <footer className="mt-auto border-t border-line bg-sunken">
+    // Step 6: the footer becomes the deep bookend to the hero.
+    //
+    // It was `bg-sunken` - the same light grey as the services section directly
+    // above it, so the page simply stopped. On the deep canvas the footer closes
+    // the composition the hero opens, and the brand block, the link columns and
+    // the contact details all read as one surface rather than as a grey strip
+    // bolted on underneath.
+    //
+    // `on-inverse` is the whole of the change. The columns, `NavList` and
+    // `ContactBlock` are untouched and follow the scope, which is the payoff of
+    // putting the palette in the token layer instead of in the components.
+    <footer className="on-inverse mt-auto border-t border-line bg-page">
       <Container className="flex flex-col gap-10 py-12 md:py-14">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
           {/*
