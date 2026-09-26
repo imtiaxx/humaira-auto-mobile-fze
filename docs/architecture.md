@@ -105,7 +105,10 @@ app/
 ├── global-error.tsx      root-layout fallback; owns its <html>/<body>
 ├── not-found.tsx         404
 ├── inventory/            vehicles / inventory page (customer-facing)
-│   └── page.tsx
+│   ├── page.tsx
+│   └── [vehicleSlug]/     one vehicle in full
+│       ├── page.tsx
+│       └── not-found.tsx  vehicle-specific 404 for an unknown slug
 ├── system/design/        design-system showcase (developer-facing)
 │   └── page.tsx
 └── system-status/        live diagnostic page
@@ -124,6 +127,42 @@ It renders from `features/vehicles/`, whose data flows from a single function,
 renders a designed empty state; when the `Vehicle` schema in section 5 is agreed
 it becomes the one place that changes. `types/vehicle.ts` mirrors that planned
 schema so the frontend shape and the database shape cannot drift.
+
+### Vehicle detail
+
+A single vehicle is `/inventory/[vehicleSlug]`, nested under the inventory route
+rather than introduced as a parallel `/vehicles/[slug]` tree. A vehicle *is* an
+inventory listing seen in full, so the two share a parent, a breadcrumb and a
+return path; a second top-level vehicle space would have created a second set of
+URLs for the same content and contradicted the vocabulary in
+`navigation/config.ts`.
+
+`vehicleSlug` is a stored field on `Vehicle`, not derived from make and model at
+render time. A derived slug changes when the make is corrected, which breaks
+every link to the vehicle and invalidates the canonical address. A stored slug is
+chosen once, so `alternates.canonical` stays trustworthy.
+
+Single-vehicle lookup is `getVehicleBySlug()`, which is `listVehicles()` filtered
+by slug - not a second query. A lookup with its own data access could disagree
+with the list, producing a grid showing a car the detail page calls missing. It is
+wrapped in React's `cache` because the route reads it from both
+`generateMetadata` and the page body, and the two must come from the same read.
+
+An unknown slug calls `notFound()`, which returns a real 404 and renders the
+segment's own `not-found.tsx` rather than the root one: the useful destination
+from a dead vehicle link is the inventory, not the homepage. The page never
+states *why* a slug is unknown - sold, withdrawn, mistyped and never-published
+are indistinguishable, and asserting a cause would be a claim the data cannot
+support.
+
+**Pricing is USD only.** `Vehicle["currency"]` is typed `"USD"` rather than a
+general ISO 4217 `string`, so a mapper that receives a figure in another currency
+is a compile error instead of a quiet second currency in the UI. There is no
+selector, no conversion and no exchange-rate source, because inventing a rate
+would be inventing a price. Formatting lives in
+`features/vehicles/lib/format.ts` and is shared by the card and the detail page,
+so the two cannot disagree about what a vehicle costs. `null` renders as "Price on
+request"; `0` is never a substitute for absence.
 
 `/system-status` is a developer diagnostic, not a customer feature. It calls the
 real health endpoints and shows real values. It exists to prove the transport

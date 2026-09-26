@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check:contrast": "node scripts/check-contrast.mjs",
-    "test": "node --test \"lib/**/*.test.ts\" \"navigation/**/*.test.ts\"",
+    "test": "node --test \"lib/**/*.test.ts\" \"navigation/**/*.test.ts\" \"features/**/*.test.ts\"",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run check:contrast && npm run build"
   },
   "dependencies": {

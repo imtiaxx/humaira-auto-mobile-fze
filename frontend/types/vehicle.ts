@@ -25,7 +25,7 @@
  * no VIN recorded is normal, not exceptional. Making those fields `null` rather
  * than `""` or `0` means the compiler forces every rendering site to decide what
  * to do with absence, which is exactly the decision that is easy to get wrong
- * and dishonest to get wrong: `price: 0` renders as "AED 0" on a car that has
+ * and dishonest to get wrong: `price: 0` renders as "$0" on a car that has
  * simply not been priced, and `mileage: 0` claims a showroom car has never been
  * driven.
  *
@@ -73,6 +73,27 @@ export interface VehicleImage {
 export interface Vehicle {
   /** Stable internal identifier. Never displayed. */
   id: string;
+  /**
+   * URL segment identifying this vehicle: `/inventory/<slug>`.
+   *
+   * ---------------------------------------------------------------------------
+   * Why a slug and not the `id`
+   * ---------------------------------------------------------------------------
+   * `id` is an internal surrogate key and is never displayed; putting it in a URL
+   * would leak it and would make addresses unreadable. A slug is the same
+   * identifier in the one form customers see, share and bookmark.
+   *
+   * It is a stored field rather than something derived from make and model at
+   * render time, and that is a deliberate constraint. A URL has to stay stable: if
+   * the make is corrected from "Mercedes-Benz" to "Mercedes" the derived slug
+   * changes, every link to the vehicle breaks, and search engines have to be told
+   * to drop the old address. A stored slug is chosen once and never changes, which
+   * is what makes `alternates.canonical` on the detail page trustworthy.
+   *
+   * Lowercase and hyphen-separated, with no trailing punctuation. Comparisons
+   * normalise case and trimming so a hand-typed URL still resolves.
+   */
+  slug: string;
   make: string;
   model: string;
   /** Trim level, e.g. "L Limited". `null` when not recorded. */
@@ -90,17 +111,48 @@ export interface Vehicle {
   /** 17-character VIN. `null` until a specific car is allocated. */
   vin: string | null;
   /**
-   * Asking price in whole units of `currency` (AED 125000, not fils), or `null`
-   * when the price has not been agreed or is withheld. `null` means "enquire",
-   * not "free".
+   * Asking price in whole US dollars (35000, not cents), or `null` when the
+   * price has not been agreed or is withheld. `null` means "enquire", not
+   * "free".
    *
    * Whole units rather than minor units deliberately: minor units would require
    * every renderer to divide by 100, and one that forgets renders a car's price
    * a hundred times too high. Whole units cannot be misread that way.
+   *
+   * ---------------------------------------------------------------------------
+   * A zero price is not a valid price
+   * ---------------------------------------------------------------------------
+   * The contract is "`null` or a positive figure", but a `number` cannot enforce
+   * that, so a `0` from a badly-populated upstream column will type-check and
+   * arrive. The display rule is therefore enforced where the damage would happen:
+   * `formatVehiclePrice()` in `features/vehicles/lib/format.ts` treats any value
+   * `<= 0` as unpriced and renders "Price on request". Keep those two in step -
+   * the type records the intent, the formatter guarantees the output.
    */
   price: number | null;
-  /** ISO 4217 code. Always present, so a price is never ambiguous. */
-  currency: string;
+  /**
+   * The pricing currency, and the only one this site quotes.
+   *
+   * ---------------------------------------------------------------------------
+   * Why this is a literal type rather than `string`
+   * ---------------------------------------------------------------------------
+   * USD is the business's decision for customer-facing vehicle prices, so this
+   * is typed `"USD"` rather than a general ISO 4217 `string`. That turns the rule
+   * from a convention into a compiler error: a mapper that receives an AED or EUR
+   * figure from a future endpoint cannot widen this to `"AED"` without an explicit
+   * type error at the point of the mistake, instead of quietly shipping a second
+   * currency into the UI.
+   *
+   * There is no currency selector, no conversion and no exchange-rate source in
+   * this repository, and inventing a rate would be inventing a price. A quoted
+   * price is either confirmed in USD or it is `null`.
+   *
+   * Kept as a field on the model rather than a module constant so the value
+   * travels with the data the way the rest of the specification does, and so the
+   * API mapper has one obvious place to reconcile a source that reports a
+   * different currency.
+   */
+  currency: "USD";
   status: VehicleStatus;
   /** Where the vehicle is, e.g. the Dubai showroom. `null` when not confirmed. */
   location: string | null;
@@ -140,7 +192,7 @@ export interface VehicleFilters {
   bodyType?: string;
   fuel?: string;
   transmission?: string;
-  /** Inclusive bounds, in `price`'s currency. */
+  /** Inclusive bounds, in USD, the only currency `price` is quoted in. */
   minPrice?: number;
   maxPrice?: number;
   minYear?: number;

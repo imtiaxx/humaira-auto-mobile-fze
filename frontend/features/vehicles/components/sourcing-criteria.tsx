@@ -45,7 +45,9 @@ const CRITERIA: readonly { label: string; detail: string }[] = [
   },
   {
     label: "Budget",
-    detail: "The range you are working to, in AED.",
+    // USD, to match `Vehicle["currency"]` and every price the site renders. This
+    // line previously said AED, which contradicted the pricing convention.
+    detail: "The range you are working to, in USD.",
   },
 ];
 
@@ -57,6 +59,7 @@ export function SourcingCriteria() {
     >
       <Container className="py-16 sm:py-20">
         <SectionHeading
+          titleId="sourcing-heading"
           eyebrow="Sourcing"
           title="Tell us what you are looking for"
           description="Humera Automobile sources across the Dubai market rather than from a single seller, so a vehicle can often be found when it is not the one we have in the showroom. Four details are enough for us to start."

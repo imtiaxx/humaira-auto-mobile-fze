@@ -1,10 +1,12 @@
 import Image from "next/image";
+import Link from "next/link";
 
 import { WhatsAppCta } from "@/components/cta/whatsapp-cta";
 import { Car, MapPin } from "@/components/icons";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Surface } from "@/components/ui/surface";
 import { VEHICLE_STATUS_LABELS } from "@/features/vehicles/lib/inventory";
+import { formatMileage, formatVehiclePrice, vehiclePath, vehicleTitle } from "@/features/vehicles/lib/format";
 import { cn } from "@/lib/cn";
 import type { Vehicle } from "@/types/vehicle";
 
@@ -38,17 +40,29 @@ import type { Vehicle } from "@/types/vehicle";
  * badge. Tones follow the mapping documented in `components/ui/badge.tsx`.
  *
  * ---------------------------------------------------------------------------
- * The action is the shared WhatsApp CTA, not a detail link
+ * The action is a link to the vehicle, plus the shared WhatsApp CTA
  * ---------------------------------------------------------------------------
- * There is no `/inventory/[id]` route, so a link to a vehicle page would be a
- * 404 behind the most prominent element on the tile. The enquiry path is
- * WhatsApp, pre-filled with the vehicle's own reference, which means the
- * conversation starts with the car already named.
+ * Step 7 shipped this tile with no link at all, because `/inventory/[vehicleSlug]`
+ * did not exist and a link to it would have been a 404 behind the most prominent
+ * element on the tile. That route exists now, so the make and model is a link -
+ * and it links through `vehiclePath`, the same helper the breadcrumb and the
+ * canonical metadata use, so the tile, the page and the address bar agree.
  *
- * `WhatsAppCta` defaults to rendering nothing when no number is configured,
- * which is what a listing page needs: with twenty vehicles on screen, twenty
- * visibly dead buttons would be far worse than none. The number lives in the
- * environment, never in this file.
+ * The WhatsApp CTA stays as a second, separate path, pre-filled with the
+ * vehicle's own reference, which means the conversation starts with the car
+ * already named. `WhatsAppCta` defaults to rendering nothing when no number is
+ * configured, which is what a listing page needs: with twenty vehicles on
+ * screen, twenty visibly dead buttons would be far worse than none. The number
+ * lives in the environment, never in this file.
+ *
+ * ---------------------------------------------------------------------------
+ * Prices
+ * ---------------------------------------------------------------------------
+ * Formatting moved to `features/vehicles/lib/format.ts` in Step 8 so the card and
+ * the detail page cannot disagree about how a car is priced, and so there is
+ * exactly one place in the codebase that turns a price into a customer-facing
+ * string. `formatVehiclePrice` owns the "Sold" case too, so this file does not
+ * branch on status.
  *
  * ---------------------------------------------------------------------------
  * Images
@@ -70,32 +84,6 @@ const STATUS_TONES: Record<Vehicle["status"], BadgeTone> = {
 };
 
 const EXCEPTION_STATES: readonly Vehicle["status"][] = ["reserved", "sold"];
-
-/**
- * Formats an asking price.
- *
- * The locale is pinned rather than left to the runtime default. Relying on the
- * environment's locale is a genuine hydration hazard here: the server and the
- * browser can disagree about number formatting, and React will then report a
- * mismatch and re-render the tile on the client.
- *
- * Zero fraction digits because this is a vehicle asking price in AED - whole
- * dirhams are how the figure is quoted and agreed in this market.
- */
-function formatPrice(vehicle: Vehicle): string {
-  if (vehicle.price === null) return "Price on request";
-
-  return new Intl.NumberFormat("en-AE", {
-    style: "currency",
-    currency: vehicle.currency,
-    maximumFractionDigits: 0,
-  }).format(vehicle.price);
-}
-
-/** Kilometres, grouped for readability. `tnum` keeps the digits aligned. */
-function formatMileage(km: number): string {
-  return `${new Intl.NumberFormat("en-AE").format(km)} km`;
-}
 
 export function VehicleCard({
   vehicle,
@@ -125,10 +113,15 @@ export function VehicleCard({
     vehicle.mileage === null ? null : formatMileage(vehicle.mileage),
   ].filter((value): value is string => value !== null);
 
-  const title = `${vehicle.make} ${vehicle.model}`;
+  const title = vehicleTitle(vehicle);
 
   return (
-    <Surface as="article" className={cn("flex w-full flex-col overflow-hidden", className)}>
+    <Surface
+      as="article"
+      // `relative` establishes the containing block for the title link's stretched
+      // `after` overlay, so the hit area is the card rather than the page.
+      className={cn("relative flex w-full flex-col overflow-hidden", className)}
+    >
       {/*
         The image area is a fixed ratio box rather than an intrinsically-sized
         one, so every tile in the grid is the same height whether or not it has
@@ -176,7 +169,30 @@ export function VehicleCard({
 
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex flex-col gap-1.5">
-          <Heading className="text-h4 text-fg text-balance">{title}</Heading>
+          {/*
+            One link, stretched over the whole tile.
+
+            The heading wraps the link and the link's `after` pseudo-element
+            covers the card, so the entire tile is clickable while the
+            accessibility tree still contains exactly one link with a name that
+            says what it is. The alternative - also linking the image - would
+            produce two links to the same place, which is noise a screen reader
+            user has to listen to twice and which duplicates the destination in
+            the tab order.
+
+            The WhatsApp action below is `relative`, so it sits above the stretched
+            overlay and stays independently clickable and focusable. Nesting a
+            button inside a link would be invalid HTML, which is why the overlay
+            approach is used rather than wrapping the card contents.
+          */}
+          <Heading className="text-h4 text-fg text-balance">
+            <Link
+              href={vehiclePath(vehicle.slug)}
+              className="after:absolute after:inset-0 after:content-[''] hover:underline"
+            >
+              {title}
+            </Link>
+          </Heading>
 
           {vehicle.variant ? (
             <p className="text-body-sm text-fg-secondary">{vehicle.variant}</p>
@@ -198,11 +214,13 @@ export function VehicleCard({
           sits on a consistent baseline across a row of tiles whose description
           lengths differ. It is the number a buyer scans for, so it gets
           `text-fg` at body weight rather than being styled as secondary text.
+
+          `formatVehiclePrice` is shared with the detail page, so the two can never
+          disagree about how a car is priced. It also decides the "Sold" case, so
+          this line does not branch on status itself.
         */}
         <div className="mt-auto flex flex-col gap-1 pt-1">
-          <p className="text-body font-semibold text-fg">
-            {vehicle.status === "sold" ? "Sold" : formatPrice(vehicle)}
-          </p>
+          <p className="text-body font-semibold text-fg">{formatVehiclePrice(vehicle)}</p>
 
           {vehicle.location ? (
             <p className="flex items-center gap-1.5 text-caption text-fg-muted">
@@ -216,9 +234,14 @@ export function VehicleCard({
           The enquiry action, pre-filled with this vehicle's reference so the
           message arrives already identifying the car. Renders nothing until
           `NEXT_PUBLIC_WHATSAPP_NUMBER` is set - see the note at the top.
+
+          `relative` keeps it above the title link's stretched overlay. The
+          `z-10` is what actually guarantees it: both are positioned, and a
+          positioned element later in the source order would win anyway, but
+          relying on source order for a click target is fragile.
         */}
         <WhatsAppCta
-          className="mt-1 self-start"
+          className="relative z-10 mt-1 self-start"
           variant="outline"
           size="sm"
           label="Enquire"

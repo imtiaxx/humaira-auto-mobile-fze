@@ -13,7 +13,7 @@ import { Container } from "@/components/ui/container";
  *
  * It is the same `on-inverse` deep treatment the homepage uses for its
  * conversion panel, reused from the token layer rather than restyled. The
- * `h3` here follows the page's `h1` and the sections' `h2`s, so the outline is
+ * `h2` here follows the page's `h1` and the sections' `h2`s, so the outline is
  * unbroken.
  *
  * `unavailable="disabled"` rather than the default `hidden`: this is a page

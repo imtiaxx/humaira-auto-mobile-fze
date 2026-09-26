@@ -17,6 +17,7 @@ export function SectionHeading({
   description,
   align = "start",
   level = 2,
+  titleId,
   className,
   children,
 }: {
@@ -26,6 +27,18 @@ export function SectionHeading({
   align?: "start" | "center";
   /** Heading level. `2` for a top-level section, `3` when nested. */
   level?: 2 | 3;
+  /**
+   * `id` for the rendered heading element.
+   *
+   * A section that names itself with `aria-labelledby` needs the heading to
+   * actually carry that `id`, or the reference points at nothing and the
+   * section's accessible name silently disappears. Rendering the heading with a
+   * caller-supplied `id` is what keeps the accessible name and the visible
+   * heading the same string, which is what WCAG "Label in Name" asks for.
+   *
+   * Optional, so adding it changes no existing call site's output.
+   */
+  titleId?: string;
   className?: string;
   /** Optional action rendered opposite the heading on wide viewports. */
   children?: React.ReactNode;
@@ -54,7 +67,10 @@ export function SectionHeading({
           <p className="text-label text-fg-accent uppercase">{eyebrow}</p>
         ) : null}
 
-        <Heading className={cn(level === 2 ? "text-h2" : "text-h3", "text-fg")}>
+        <Heading
+          id={titleId}
+          className={cn(level === 2 ? "text-h2" : "text-h3", "text-fg")}
+        >
           {title}
         </Heading>
 

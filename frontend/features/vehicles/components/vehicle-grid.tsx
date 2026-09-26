@@ -48,10 +48,10 @@ export function VehicleGrid({
 }: {
   vehicles: Vehicle[];
   /**
-   * Wired to the heading so the region is named by its own visible title. The
-   * heading string is repeated rather than shared because `SectionHeading` does
-   * not expose an `id`; passing one in keeps the accessible name and the visible
-   * heading identical, which is what WCAG "Label in Name" asks for.
+   * Wired to the heading so the region is named by its own visible title, and
+   * passed through to `SectionHeading` so the referenced element actually
+   * exists - an `aria-labelledby` pointing at nothing leaves the section with
+   * no accessible name at all.
    */
   headingId?: string;
 }) {
@@ -59,6 +59,7 @@ export function VehicleGrid({
     <section aria-labelledby={headingId} className="bg-page">
       <Container className="py-16 sm:py-20">
         <SectionHeading
+          titleId={headingId}
           eyebrow="Listings"
           title="Vehicles available now"
           description="Vehicles published by Humera Automobile appear here with their specification, price and location."
