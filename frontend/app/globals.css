@@ -1,0 +1,325 @@
+/* ==========================================================================
+   Humera Automobile - global styles and design tokens
+   ==========================================================================
+
+   Tailwind CSS v4 is CSS-first: tokens are declared here with `@theme` and
+   Tailwind generates the matching utilities (`bg-ink-900`, `text-accent-400`,
+   `rounded-card`, ...). There is deliberately no `tailwind.config.js`.
+
+   Design direction
+   ----------------
+   Premium, restrained, technical. The reference points are automotive
+   manufacturer configurators and showroom signage rather than consumer
+   marketplace sites:
+
+   - A near-black graphite neutral ramp carries the whole interface. Surfaces
+     are separated by hairline borders and small elevation changes, never by
+     heavy shadows.
+   - A single brass accent marks the single most important action on a screen.
+     Used at most a few times per view; it is never used for decoration.
+   - Sharp, small radii. Automotive design language is angular; heavily
+     rounded cards read as consumer-app, not as a premium marque.
+   - No gradients on text or surfaces, no glassmorphism, no neon.
+
+   Every colour pairing below has been chosen to clear WCAG AA contrast
+   (4.5:1 for body text, 3:1 for large text and UI boundaries) against the
+   surface it is intended to sit on.
+   ========================================================================== */
+
+@import "tailwindcss";
+
+/* --------------------------------------------------------------------------
+   Raw palettes
+   --------------------------------------------------------------------------
+   Reference values only. Components should prefer the semantic tokens below so
+   that a theme change never requires touching component code.
+   -------------------------------------------------------------------------- */
+@theme {
+  /* Graphite / ink. Slightly blue-shifted so it reads as metal, not brown. */
+  --color-ink-50: #f6f7f9;
+  --color-ink-100: #eceef1;
+  --color-ink-200: #d5d9e0;
+  --color-ink-300: #b0b8c4;
+  --color-ink-400: #8590a1;
+  --color-ink-500: #667184;
+  --color-ink-600: #515a6b;
+  --color-ink-700: #424a58;
+  --color-ink-800: #2b313b;
+  --color-ink-900: #1b1f26;
+  --color-ink-950: #0e1116;
+  --color-ink-1000: #07090c;
+
+  /* Brass accent. Warm metallic; reserved for primary actions and focus. */
+  --color-accent-50: #fbf8f2;
+  --color-accent-100: #f5eedd;
+  --color-accent-200: #eadcbc;
+  --color-accent-300: #dcc492;
+  --color-accent-400: #cba768;
+  --color-accent-500: #b98f4e;
+  --color-accent-600: #9e7340;
+  --color-accent-700: #7f5a34;
+  --color-accent-800: #65472c;
+  --color-accent-900: #513a26;
+  --color-accent-950: #2e2015;
+
+  /* Status. Each has a matching `-surface` and `-content` pair defined under
+     semantic tokens so a badge never hard-codes a background. */
+  --color-success-100: #dcf5e6;
+  --color-success-500: #17794a;
+  --color-success-700: #0f5c37;
+  --color-warning-100: #fdf0d5;
+  --color-warning-500: #a16207;
+  --color-warning-700: #7c4a05;
+  --color-danger-100: #fde4e4;
+  --color-danger-500: #c02626;
+  --color-danger-700: #961b1b;
+  --color-info-100: #dfeafb;
+  --color-info-500: #1f5fa9;
+  --color-info-700: #17487f;
+
+  /* Typography ---------------------------------------------------------- */
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --font-display:
+    var(--font-sora), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Modular type scale (1.250 major third). Fluid between 360px and 1280px. */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.313rem;
+  --text-2xl: clamp(1.5rem, 1.35rem + 0.75vw, 1.875rem);
+  --text-3xl: clamp(1.875rem, 1.6rem + 1.375vw, 2.5rem);
+  --text-4xl: clamp(2.25rem, 1.8rem + 2.25vw, 3.5rem);
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-normal: 1.6;
+
+  /* Spacing scale. 4px base grid, named so layouts read consistently. */
+  --spacing: 0.25rem;
+
+  /* Radii. Deliberately small: automotive surfaces are angular. */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-card: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* Elevation. Low-contrast, cool-tinted. Avoids the "floating card" look. */
+  --shadow-xs: 0 1px 2px 0 rgb(14 17 22 / 0.06);
+  --shadow-sm: 0 1px 3px 0 rgb(14 17 22 / 0.08), 0 1px 2px -1px rgb(14 17 22 / 0.06);
+  --shadow-md: 0 4px 12px -2px rgb(14 17 22 / 0.10), 0 2px 4px -2px rgb(14 17 22 / 0.06);
+  --shadow-lg: 0 12px 28px -6px rgb(14 17 22 / 0.14), 0 4px 8px -4px rgb(14 17 22 / 0.08);
+
+  /* Motion. One easing curve, two durations. No decorative animation. */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-fade-in: fade-in 200ms var(--ease-out-soft) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Semantic tokens
+   --------------------------------------------------------------------------
+   Components reference these, not the raw ramps. `prefers-color-scheme`
+   remaps them so the dark scheme is a token swap rather than a second set of
+   component styles.
+   -------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  --surface-page: var(--color-ink-50);
+  --surface-raised: #ffffff;
+  --surface-sunken: var(--color-ink-100);
+  --surface-inverse: var(--color-ink-950);
+
+  --border-subtle: var(--color-ink-200);
+  --border-default: var(--color-ink-300);
+  --border-strong: var(--color-ink-400);
+
+  --text-primary: var(--color-ink-950);
+  --text-secondary: var(--color-ink-600);
+  --text-muted: var(--color-ink-500);
+  --text-inverse: var(--color-ink-50);
+  --text-accent: var(--color-accent-700);
+
+  --action-primary: var(--color-ink-950);
+  --action-primary-hover: var(--color-ink-800);
+  --action-accent: var(--color-accent-600);
+  --action-accent-hover: var(--color-accent-700);
+
+  --status-success-surface: var(--color-success-100);
+  --status-success-content: var(--color-success-700);
+  --status-warning-surface: var(--color-warning-100);
+  --status-warning-content: var(--color-warning-700);
+  --status-danger-surface: var(--color-danger-100);
+  --status-danger-content: var(--color-danger-700);
+  --status-info-surface: var(--color-info-100);
+  --status-info-content: var(--color-info-700);
+  --status-neutral-surface: var(--color-ink-100);
+  --status-neutral-content: var(--color-ink-700);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --surface-page: var(--color-ink-1000);
+    --surface-raised: var(--color-ink-950);
+    --surface-sunken: var(--color-ink-900);
+    --surface-inverse: var(--color-ink-50);
+
+    --border-subtle: var(--color-ink-800);
+    --border-default: var(--color-ink-700);
+    --border-strong: var(--color-ink-600);
+
+    --text-primary: var(--color-ink-50);
+    --text-secondary: var(--color-ink-300);
+    --text-muted: var(--color-ink-400);
+    --text-inverse: var(--color-ink-950);
+    --text-accent: var(--color-accent-300);
+
+    --action-primary: var(--color-ink-50);
+    --action-primary-hover: var(--color-ink-200);
+    --action-accent: var(--color-accent-400);
+    --action-accent-hover: var(--color-accent-300);
+
+    --status-success-surface: color-mix(in oklab, var(--color-success-500) 18%, transparent);
+    --status-success-content: var(--color-success-100);
+    --status-warning-surface: color-mix(in oklab, var(--color-warning-500) 18%, transparent);
+    --status-warning-content: var(--color-warning-100);
+    --status-danger-surface: color-mix(in oklab, var(--color-danger-500) 18%, transparent);
+    --status-danger-content: var(--color-danger-100);
+    --status-info-surface: color-mix(in oklab, var(--color-info-500) 18%, transparent);
+    --status-info-content: var(--color-info-100);
+    --status-neutral-surface: var(--color-ink-900);
+    --status-neutral-content: var(--color-ink-200);
+  }
+}
+
+/* Expose the semantic tokens as Tailwind utilities (bg-surface, text-muted...). */
+@theme inline {
+  --color-page: var(--surface-page);
+  --color-raised: var(--surface-raised);
+  --color-sunken: var(--surface-sunken);
+  --color-inverse: var(--surface-inverse);
+
+  --color-line: var(--border-subtle);
+  --color-line-strong: var(--border-default);
+
+  --color-fg: var(--text-primary);
+  --color-fg-secondary: var(--text-secondary);
+  --color-fg-muted: var(--text-muted);
+  --color-fg-inverse: var(--text-inverse);
+  --color-fg-accent: var(--text-accent);
+
+  --color-success: var(--status-success-content);
+  --color-success-surface: var(--status-success-surface);
+  --color-warning: var(--status-warning-content);
+  --color-warning-surface: var(--status-warning-surface);
+  --color-danger: var(--status-danger-content);
+  --color-danger-surface: var(--status-danger-surface);
+  --color-info: var(--status-info-content);
+  --color-info-surface: var(--status-info-surface);
+  --color-neutral: var(--status-neutral-content);
+  --color-neutral-surface: var(--status-neutral-surface);
+}
+
+/* --------------------------------------------------------------------------
+   Base element defaults
+   -------------------------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--border-subtle);
+  }
+
+  html {
+    /* Anchored headings clear the sticky header when a link targets them. */
+    scroll-padding-top: 5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--surface-page);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    line-height: var(--leading-normal);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    line-height: var(--leading-tight);
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Visible, high-contrast focus for keyboard users on every interactive
+     element. Never removed - only restyled. */
+  :focus-visible {
+    outline: 2px solid var(--action-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  /* Respect users who ask for less motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  ::selection {
+    background-color: var(--color-accent-200);
+    color: var(--color-accent-950);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Utilities
+   -------------------------------------------------------------------------- */
+@utility container-page {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+  max-width: 80rem;
+
+  @media (width >= 48rem) {
+    padding-inline: 2rem;
+  }
+
+  @media (width >= 80rem) {
+    padding-inline: 2.5rem;
+  }
+}
+
+/* Hairline divider used between list rows and section boundaries. */
+@utility rule-top {
+  border-top: 1px solid var(--border-subtle);
+}

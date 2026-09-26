@@ -1,0 +1,18 @@
+# Humera Automobile - backend development and test dependencies.
+#
+#   pip install -r requirements-dev.txt
+#
+# Every entry below exists for a specific purpose:
+#   ruff           - linting and formatting
+#   mypy           - strict static type checking
+#   pytest         - test runner
+#   pytest-asyncio - async test support (required for async DB/API tests)
+#   httpx          - in-process HTTP client used by the FastAPI test client
+
+-r requirements.txt
+
+ruff==0.16.9
+mypy==2.3.1
+pytest==9.1.1
+pytest-asyncio==1.4.0
+httpx==0.28.1

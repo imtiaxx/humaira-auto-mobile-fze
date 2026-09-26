@@ -1,0 +1,21 @@
+# Frontend-specific ignores. Repository-wide rules live in the root .gitignore;
+# this file only covers Next.js tooling output.
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# env files - never commit real values, always keep the template
+.env*
+!.env.example
+
+# production
+/build
+
+# vercel
+.vercel
+
+# testing
+/coverage

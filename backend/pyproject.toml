@@ -1,0 +1,103 @@
+[project]
+name = "humera-automobile-api"
+version = "0.1.0"
+description = "Backend API for Humera Automobile - vehicle sales and international export."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.141.1",
+    "uvicorn[standard]==0.54.0",
+    "pydantic==2.13.5",
+    "pydantic-settings==2.15.0",
+    "sqlalchemy[asyncio]==2.1.1",
+    "alembic==1.20.0",
+    "asyncpg==0.31.0",
+    "psycopg[binary]==3.3.6",
+    "aiosqlite==0.22.1",
+    "pwdlib[argon2]==0.3.1",
+    "pyjwt==2.15.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff==0.16.9",
+    "mypy==2.3.1",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "httpx==0.28.1",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+# ---------------------------------------------------------------------------
+# Ruff - linting and formatting
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["."]
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "C4",   # comprehensions
+    "SIM",  # simplify
+    "TID",  # tidy imports
+    "PTH",  # pathlib
+    "RUF",  # ruff-specific
+    "ASYNC",
+    "S",    # bandit security checks
+]
+ignore = [
+    "S101",  # assert: allowed in tests and internal invariant checks
+    "B008",  # FastAPI Depends()/Query() in defaults is the framework idiom
+    "RUF012", # ClassVar annotations not required for SQLAlchemy models
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "N", "B", "SIM", "PLR2004"]
+"alembic/env.py" = ["E402"]
+"alembic/versions/*" = ["E402", "I001"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+# ---------------------------------------------------------------------------
+# mypy - static type checking
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+warn_unused_ignores = false
+disallow_untyped_defs = true
+disallow_any_generics = true
+no_implicit_reexport = false
+plugins = ["pydantic.mypy"]
+exclude = ["^alembic/", "^\\.venv/"]
+
+[[tool.mypy.overrides]]
+module = ["uvicorn.*", "argon2.*", "asyncpg.*", "psycopg.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-q --strict-markers"
+filterwarnings = ["error::DeprecationWarning:app.*"]
