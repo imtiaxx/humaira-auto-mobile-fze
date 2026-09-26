@@ -543,7 +543,16 @@
     *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
+      /* `animation-delay` has to be reset too, and this is not a theoretical
+         concern. `--animate-fade-up` uses `both` as its fill mode and its `from`
+         keyframe is `opacity: 0`, so a staggered element holds the invisible
+         start state for the whole of its delay. Resetting only the duration
+         shortens the animation but leaves the wait intact - which means a
+         visitor who asked for less motion gets *less* content on screen, not
+         more, and a long stagger looks like a slow broken page. */
+      animation-delay: 0.01ms !important;
       transition-duration: 0.01ms !important;
+      transition-delay: 0.01ms !important;
       scroll-behavior: auto !important;
     }
   }

@@ -1,96 +1,69 @@
 import type { Metadata } from "next";
 
-import { ActionLink, actionClasses } from "@/components/ui/action-link";
-import { Badge } from "@/components/ui/badge";
-import { Container } from "@/components/ui/container";
-import { SectionHeading } from "@/components/ui/section-heading";
-import { Surface } from "@/components/ui/surface";
-import { env } from "@/lib/env";
+import { Hero } from "@/features/home/components/hero";
+import { ServiceHighlights } from "@/features/home/components/service-highlights";
+import { SITE_NAME } from "@/config/site";
 
+/**
+ * Homepage.
+ *
+ * The Step 1 technical placeholder ("Implemented" / "Not yet built") was
+ * removed rather than kept below the fold. It was accurate when the site was a
+ * foundation demo and is now a liability: a visitor does not need to be told
+ * which features are unbuilt, and a build-status table under a conversion
+ * section reads as a demo. The equivalent information lives in the repository
+ * README, which is where a developer looks for it.
+ *
+ * ---------------------------------------------------------------------------
+ * Metadata
+ * ---------------------------------------------------------------------------
+ * `description` reuses the project's canonical one-line description rather than
+ * rewriting it, so there is only ever one authoritative statement of what the
+ * business is.
+ *
+ * ---------------------------------------------------------------------------
+ * Why the title is `absolute` and not a plain string
+ * ---------------------------------------------------------------------------
+ * Every other page inherits the root layout's `title.template` and renders
+ * "<page> | Humera Automobile". The homepage silently did not: Next.js does not
+ * apply a `template` to a `title` declared in a `page.js` that shares a route
+ * segment with the layout defining it, and `app/layout.tsx` and `app/page.tsx`
+ * are both segment `/`. A plain string here rendered as
+ * "Vehicle Sales & Export, Dubai" - the brand dropped from the title of the most
+ * important page on the site.
+ *
+ * `absolute` states the intent explicitly and opts out of the template rather
+ * than working around it by coincidence. The value is composed with `SITE_NAME`
+ * so the brand name still has exactly one definition in the project, and the
+ * pattern matches every other route.
+ */
 export const metadata: Metadata = {
-  title: "Foundation",
-  description: "Technical foundation status for the Humera Automobile platform.",
+  title: {
+    absolute: `Vehicle Sales & Export, Dubai | ${SITE_NAME}`,
+  },
+  description:
+    "Humera Automobile is a Dubai-based vehicle sales and international export business. Buy from our Ras Al Khor showroom, or ask us to source and export a vehicle for you.",
+  // `/` is the canonical origin for the home page, and it prevents the footer and
+  // header links from generating competing variants of the same page.
+  alternates: { canonical: "/" },
+  openGraph: {
+    // Inherits description, siteName and locale from the root layout; only the
+    // type and the URL are page-specific.
+    url: "/",
+  },
 };
-
-/**
- * Items that are genuinely working at this commit. Each one is verified by the
- * checks in the README; none of them are aspirational.
- */
-const IMPLEMENTED = [
-  "Next.js App Router with TypeScript strict mode and typed routes",
-  "Tailwind CSS v4 design tokens: colour, type, spacing, radius, elevation",
-  "Typed API client with timeout, correlation IDs and normalised errors",
-  "FastAPI service with versioned routing, structured errors and logging",
-  "PostgreSQL schema managed by Alembic migrations",
-  "Argon2id password hashing and session/token primitives",
-] as const;
-
-/**
- * Deliberately absent. Listed so nobody mistakes a missing feature for an
- * oversight, and so the next step has an explicit starting point.
- */
-const NOT_YET = [
-  "Vehicle inventory, search and filtering",
-  "Individual vehicle pages and comparison",
-  "Enquiry forms, WhatsApp and phone hand-off",
-  "Export requests and quotations",
-  "Customer accounts and authentication screens",
-  "Admin dashboard and CRM",
-] as const;
 
 export default function HomePage() {
   return (
-    <Container className="flex flex-col gap-14 py-16 md:py-24">
-        <section className="flex max-w-3xl flex-col gap-5">
-          <Badge tone="accent">Step 1 &middot; Foundation</Badge>
-          <h1 className="text-4xl font-semibold text-fg">
-            Humera Automobile platform
-          </h1>
-          <p className="text-lg text-fg-secondary">
-            The technical foundation is in place. The public website, vehicle inventory
-            and enquiry workflows are built in later steps &mdash; this page is a
-            technical placeholder, not the finished site.
-          </p>
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <ActionLink href="/system-status" tone="accent">
-              Check system status
-            </ActionLink>
-            {/* External origin: a plain anchor, not `next/link`. */}
-            <a
-              href={`${env.apiUrl}/docs`}
-              className={actionClasses("outline")}
-              rel="noreferrer noopener"
-            >
-              API reference
-            </a>
-          </div>
-        </section>
+    <>
+      {/*
+        The hero owns the page's only `h1`. Nothing below it may introduce
+        another one - `ServiceHighlights` starts at `h2`, so the outline is
+        h1 > h2 > h3 with nothing skipped.
+      */}
+      <Hero />
 
-        <section className="grid gap-6 md:grid-cols-2">
-          <Surface className="flex flex-col gap-4 p-6">
-            <SectionHeading eyebrow="Working now" title="Implemented" />
-            <ul className="flex flex-col gap-2.5">
-              {IMPLEMENTED.map((item) => (
-                <li key={item} className="flex gap-3 text-sm text-fg-secondary">
-                  <span aria-hidden="true" className="mt-2 h-1 w-1 shrink-0 rounded-pill bg-accent-500" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </Surface>
-
-          <Surface className="flex flex-col gap-4 p-6">
-            <SectionHeading eyebrow="Planned" title="Not yet built" />
-            <ul className="flex flex-col gap-2.5">
-              {NOT_YET.map((item) => (
-                <li key={item} className="flex gap-3 text-sm text-fg-secondary">
-                  <span aria-hidden="true" className="mt-2 h-1 w-1 shrink-0 rounded-pill bg-ink-300" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </Surface>
-        </section>
-      </Container>
+      <ServiceHighlights />
+    </>
   );
 }
