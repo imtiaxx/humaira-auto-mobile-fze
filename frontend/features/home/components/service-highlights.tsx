@@ -1,137 +1,170 @@
-import { Car, FileText, Globe, Search } from "@/components/icons";
+import { WhatsAppCta } from "@/components/cta/whatsapp-cta";
+import { Car, Globe, Search, Truck } from "@/components/icons";
 import { Container } from "@/components/ui/container";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { Surface } from "@/components/ui/surface";
 
 /**
- * The first conversion section: what the business actually does.
+ * The services block: the homepage's answer to "what do you actually do, and
+ * can you help me with my situation".
  *
- * ---------------------------------------------------------------------------
- * Why this is a service list and not a statistics band
- * ---------------------------------------------------------------------------
- * The obvious thing to put here is a row of counters - "12 years trading",
- * "500 vehicles exported", "40 destination countries". Every one of those is a
- * fabricated claim until the business supplies it, and a counter is the single
- * most common way a generated site ends up quietly lying. It is also the easiest
- * thing for a visitor to check and find false, which costs more trust than an
- * empty band would.
+ * The four cards are the customer journey in the order a buyer or seller meets
+ * it, and the names are the ones the site already uses in its own navigation
+ * config - Vehicles, Sell / Source, Export - rather than invented marketing
+ * categories. Keeping the same words the header uses means the section explains
+ * the site rather than paraphrasing it.
  *
- * So the section describes services instead. Each of the four is drawn from the
- * site's own information architecture in `navigation/config.ts` - the Vehicles,
- * Sell/Source and Export groups - so this is a description of the business
- * rather than a claim about it. Nothing here needs a number to be true.
+ * Every sentence is traceable to the repository:
  *
- * ---------------------------------------------------------------------------
- * Why the cards are not links
- * ---------------------------------------------------------------------------
- * `/inventory`, `/brands`, `/compare` and `/export` are all `planned` in the
- * navigation config: the routes do not exist. Making these cards links is the
- * single most likely way to reintroduce the dead links Step 3 removed, so they
- * are deliberately non-interactive. The route that will eventually own each
- * card's detail can be wired up in one line when it lands.
+ * - Buying and exporting vehicles in Dubai is the site's own one-line
+ *   description in `config/site.ts`.
+ * - The showroom address comes from the same config, so it cannot drift from
+ *   the footer.
+ * - Sourcing by make, model, year and budget is the request the navigation
+ *   already models as "Sell / Source a Car" and "Request a Vehicle".
+ * - Shipping and documentation are the two items the navigation lists under
+ *   Export.
  *
- * The enquiry route stays with the hero, which is where a visitor who wants to
- * act on any of this already has the button.
+ * There is no invented figure anywhere: no units sold, no customer count, no
+ * turnaround time, no rating, no accreditation. On a site whose only real
+ * differentiator is that a named person answers the message, a row of invented
+ * counters is exactly the thing a competitor could disprove on their first
+ * email.
+ *
+ * These cards are deliberately NOT links. The routes they describe
+ * (`/inventory`, `/export`, `/request-a-vehicle`) are declared `planned` in
+ * `navigation/config.ts` and do not exist, so linking them would put a 404
+ * behind the most important block on the page. For the same reason the cards
+ * carry no hover treatment: a card that shifts and deepens its shadow on hover
+ * reads as clickable, and promising a click that 404s is worse than not
+ * looking clickable at all. When those routes ship, each card gains a link and
+ * the hover state with it.
+ *
+ * No state and no event handlers, so this is a Server Component and ships no
+ * JavaScript.
  */
 
-const SERVICES = [
+type Service = {
+  /** Stable key. Not shown to the user. */
+  id: string;
+  title: string;
+  /** Short factual qualifier, sitting under the title. */
+  label: string;
+  body: string;
+  icon: typeof Car;
+};
+
+const SERVICES: Service[] = [
   {
-    id: "sales",
+    id: "vehicles",
+    title: "Vehicles",
+    label: "Showroom sales in Dubai",
+    body: "The cars held at our Ras Al Khor showroom, sold directly by the company supplying them rather than through a broker.",
     icon: Car,
-    title: "Vehicle sales",
-    body: "Buy from our Ras Al Khor showroom in Dubai, or tell us the vehicle you need and we will confirm what is available.",
   },
   {
-    id: "sourcing",
+    id: "source",
+    title: "Source a vehicle",
+    label: "By make, model and budget",
+    body: "Tell us the make, model, year and budget you are working to, and we will look for it across the Dubai market.",
     icon: Search,
-    title: "Vehicle sourcing",
-    body: "Name a make, model, year and budget, and we will source the vehicle on your behalf rather than leaving you to search alone.",
   },
   {
     id: "export",
+    title: "Export worldwide",
+    label: "For buyers outside the UAE",
+    body: "Vehicles exported from Dubai to buyers in other countries, arranged from the UAE side.",
     icon: Globe,
-    title: "International export",
-    body: "We export vehicles to buyers outside the UAE, arranging the shipment to your destination country.",
   },
   {
-    id: "documentation",
-    icon: FileText,
-    title: "Export documentation",
-    body: "The paperwork an imported vehicle needs, handled as part of the export rather than as an afterthought.",
+    id: "shipping",
+    title: "Shipping and documentation",
+    label: "Handled as part of the export",
+    body: "The transport and the export documents that move a vehicle out of the UAE and travel with it to the buyer.",
+    icon: Truck,
   },
-] as const;
+];
+
+/**
+ * The section's visible heading, held in one place because it is used twice:
+ * once as the `h2`, once as the region name.
+ *
+ * `SectionHeading` renders the heading but exposes no `id`, so `aria-labelledby`
+ * is not available without changing a shared component. Naming the region with
+ * the same string instead keeps the accessible name and the visible heading
+ * identical, which is what WCAG "Label in Name" asks for - and sharing the
+ * constant is what stops the two from drifting apart later.
+ */
+const SERVICES_HEADING = "Vehicles, sourcing and international export";
 
 export function ServiceHighlights() {
   return (
     <section
-      // The hero's secondary CTA points here, so the id is load-bearing: rename
-      // it and that button silently stops scrolling anywhere.
       id="services"
-      // The anchor target has to be programmatically focusable. Following an
-      // in-page link scrolls the viewport, but without `tabIndex={-1}` the
-      // keyboard focus stays behind on the CTA, so the next Tab jumps back up
-      // to the top of the hero and the jump looks like it never happened.
+      aria-label={SERVICES_HEADING}
+      // The hero's secondary action points here. `tabIndex={-1}` makes that
+      // link move focus instead of leaving the next Tab back at the top of the
+      // page, so the section announces itself rather than scrolling silently.
       tabIndex={-1}
-      aria-labelledby="services-heading"
-      className="scroll-mt-24 border-t border-line bg-sunken focus:outline-none"
+      className="scroll-mt-24 overflow-hidden border-t border-line bg-sunken focus:outline-none"
     >
-      <Container className="py-16 md:py-20 lg:py-24">
-        {/*
-          `align="start"` (the default) rather than a centred heading. Centred
-          section headers are the default in most templates; left-aligned reads
-          as more editorial and matches the hero, which is the point of a
-          consistent left edge down the page.
-        */}
+      <Container className="py-16 sm:py-20 lg:py-28">
         <SectionHeading
-          eyebrow="What we do"
-          title="From showroom floor to destination country"
-          description="Humera Automobile handles both halves of buying a vehicle in Dubai and getting it out of the country."
+          eyebrow="What we offer"
+          title={SERVICES_HEADING}
+          description="Humera Automobile handles both halves of buying a vehicle in Dubai: the car itself, and getting it to the country you are buying from."
         />
 
-        {/*
-          One column on mobile, two from `sm`, four from `lg`.
-
-          Four across is the most that stays readable at this measure - a fifth
-          would force the cards below ~200px, at which point the body text wraps
-          to four or five lines and the row stops scanning as a set.
-        */}
-        <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:mt-12 lg:grid-cols-4">
-          {SERVICES.map((service) => {
-            const Icon = service.icon;
-
-            return (
-              <li key={service.id} className="min-w-0">
-                {/*
-                  `as="article"` gives each card a landmark-free but still
-                  meaningful grouping. The heading is a real `h3`, so the page
-                  outline is h1 (hero) > h2 (this section) > h3 (each service) -
-                  which is what lets a screen-reader user jump between services
-                  from the heading list.
-                */}
-                <Surface
-                  as="article"
-                  className="flex h-full flex-col gap-3.5 p-5 transition-[border-color,box-shadow] duration-[var(--duration-base)] hover:border-line-strong hover:shadow-md"
+        <ul className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {SERVICES.map(({ id, title, label, body, icon: Icon }) => (
+            <li key={id} className="flex">
+              <Surface
+                as="article"
+                className="flex w-full flex-col gap-3 rounded-card border-line p-6"
+              >
+                <span
+                  aria-hidden="true"
+                  className="inline-flex size-10 items-center justify-center rounded-card border border-line-strong text-fg-accent"
                 >
-                  <span
-                    aria-hidden="true"
-                    className="inline-flex size-10 shrink-0 items-center justify-center rounded-sm border border-line bg-page text-accent-600 dark:text-accent-400"
-                  >
-                    <Icon className="size-5" />
-                  </span>
+                  <Icon className="size-5" />
+                </span>
 
-                  {/*
-                    `level={3}` because this heading is nested inside the
-                    section's `h2`. Getting this wrong breaks the outline, which
-                    is the single most useful structure a screen reader user has.
-                  */}
-                  <SectionHeading level={3} title={service.title} />
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-h3 text-fg">{title}</h3>
+                  <p className="text-label text-fg-muted">{label}</p>
+                </div>
 
-                  <p className="text-body-sm text-fg-secondary">{service.body}</p>
-                </Surface>
-              </li>
-            );
-          })}
+                <p className="text-body-sm text-fg-secondary">{body}</p>
+              </Surface>
+            </li>
+          ))}
         </ul>
+
+        <Surface
+          as="div"
+          className="mt-12 flex flex-col gap-6 rounded-card border-line-strong bg-raised p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10"
+        >
+          <div className="flex max-w-2xl flex-col gap-2">
+            <h3 className="text-h3 text-fg">Not sure which one applies?</h3>
+            <p className="text-body text-fg-secondary">
+              Tell us the vehicle you are looking for, or the one you want to
+              sell, and we can point you to the right service.
+            </p>
+          </div>
+
+          {/* The one enquiry path for the whole page. Reuses the shared CTA so
+              the WhatsApp number stays in one place, comes from the
+              environment, and is never written into the markup by hand. */}
+          <WhatsAppCta
+            label="Enquire on WhatsApp"
+            ariaLabel="Enquire on WhatsApp"
+            message="Hello Humera Automobile, I would like to enquire about your services."
+            unavailable="disabled"
+            variant="accent"
+            size="lg"
+            className="shrink-0 self-start lg:self-center"
+          />
+        </Surface>
       </Container>
     </section>
   );
