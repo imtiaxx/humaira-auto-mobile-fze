@@ -14,7 +14,7 @@ export const metadata: Metadata = {
  */
 export default function NotFound() {
   return (
-    <main className="container-page flex flex-1 flex-col items-start justify-center gap-5 py-24">
+    <div className="container-page flex flex-col items-start justify-center gap-5 py-24">
       <p className="font-mono text-sm text-fg-muted">404</p>
       <h1 className="text-3xl font-semibold text-fg">This page does not exist</h1>
       <p className="max-w-prose text-fg-secondary">
@@ -23,6 +23,6 @@ export default function NotFound() {
       <ActionLink href="/" tone="primary">
         Back to home
       </ActionLink>
-    </main>
+    </div>
   );
 }

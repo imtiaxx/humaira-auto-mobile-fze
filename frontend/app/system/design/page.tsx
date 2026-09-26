@@ -43,7 +43,7 @@ const SECTIONS = [
 
 export default function DesignSystemPage() {
   return (
-    <Container as="main" className="section-y flex flex-1 flex-col gap-14">
+    <Container className="section-y flex flex-col gap-14">
       <header className="flex max-w-3xl flex-col gap-4">
         <Badge tone="accent">Step 2 &middot; Design system</Badge>
         <h1 className="text-h1 text-fg">Design system</h1>
@@ -86,7 +86,12 @@ export default function DesignSystemPage() {
 
       <Divider label="End" />
 
-      <footer className="flex flex-col gap-3">
+      {/*
+        A plain div, not a `<footer>`. The site layout now renders the one real
+        footer, and two footer landmarks on a single page is a confusing thing to
+        meet in a screen reader's landmark list.
+      */}
+      <div className="flex flex-col gap-3">
         <p className="text-body-sm text-fg-muted">
           Token reference and usage rules are documented in{" "}
           <code className="font-mono text-body-sm text-fg-secondary">
@@ -98,7 +103,7 @@ export default function DesignSystemPage() {
           </code>
           .
         </p>
-      </footer>
+      </div>
     </Container>
   );
 }

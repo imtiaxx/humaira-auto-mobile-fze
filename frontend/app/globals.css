@@ -470,8 +470,11 @@
   }
 
   html {
-    /* Anchored headings clear the sticky header when a link targets them. */
-    scroll-padding-top: 5rem;
+    /* Anchored headings clear the sticky header when a link targets them. The
+       header is 64px on mobile and 80px from `lg`, so 6rem (96px) clears the
+       tallest state with a little breathing room. Without this, a jump to
+       `#section` on any future page lands the heading underneath the bar. */
+    scroll-padding-top: 6rem;
     -webkit-text-size-adjust: 100%;
   }
 

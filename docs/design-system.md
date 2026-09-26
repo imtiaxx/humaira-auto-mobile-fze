@@ -177,6 +177,78 @@ All live in `frontend/components/ui/`. Import icons only from
   `required` attribute.
 - Never disable a submit button as the only validation feedback.
 
+## Shell and navigation
+
+The chrome that wraps every page lives in `frontend/components/layout/` and is
+mounted once, in `app/layout.tsx`. Header and footer are Server Components; the
+only client code is `NavList` and `MobileNav`, which need the current pathname
+and local interaction state.
+
+| Component | Notes |
+| --- | --- |
+| `SiteHeader` | Server. Sticky, translucent. Desktop nav at `lg`, drawer trigger below it. |
+| `SiteFooter` | Server. Four link columns plus the address block. |
+| `NavList` | Client. The single client island for active-state; renders desktop, mobile and stacked variants from one list. |
+| `MobileNav` | Client. Drawer with focus trap, Escape, scroll lock and focus restore. |
+| `Logo` | Text wordmark plus an `HA` monogram. Swap for the official asset when one exists. |
+
+### Navigation is config, and planned routes are inert
+
+`navigation/config.ts` is the only place a nav item is declared. Each item is
+either `live` with a real `href`, or `planned` with the `path` it will take.
+A `planned` item renders as `<span aria-disabled="true" data-status="planned">`,
+never as an anchor.
+
+This is why the site currently has no dead links. The alternative - omitting
+unbuilt pages until they exist - makes the header look empty and gives the
+visitor no idea what the business does, and rendering them as links produces 404s
+that read as a broken site. Inert text plus a `title` says "this is coming"
+without promising a page that does not exist.
+
+Adding a route later is a one-word change (`planned` to `live`), and
+`navigation/config.ts` is typed against Next's generated `Route` union so a typo
+in a live `href` fails `tsc` rather than shipping a 404.
+
+### Active-state matching
+
+`navigation/active.ts` holds the matching rule and is covered by unit tests,
+because the two obvious implementations are both subtly wrong:
+
+- `startsWith(href)` marks **Home** active on every page, since every path
+  starts with `/`.
+- `startsWith(href)` also marks **Compare Cars** active on `/compare-cars` and
+  **Sell / Source** active on `/sell-your-car`.
+
+Matching is exact-or-descendant, with a trailing slash treated as the same
+route. Every nav surface shares this function, so the header, drawer and footer
+can never disagree about which page you are on.
+
+### The drawer
+
+Hand-built rather than pulled from a headless library: a drawer is about a
+hundred lines, and a dependency that ships its own React and state model is a
+poor trade for a site that will otherwise ship very little client JavaScript. The
+part that is genuinely hard - the focus trap - is implemented explicitly.
+
+A drawer that only works for a sighted mouse user is worse than no drawer, so all
+six of the classic failures are handled and commented in place: Escape does
+nothing, Tab walks into the page behind, focus never moves on open, the page
+behind scrolls, focus is lost on close, and the scrim does nothing.
+
+Two details worth preserving if this is ever refactored:
+
+- The drawer's open state is **derived** from the pathname
+  (`openedOn === pathname`) rather than stored and reset in an effect. That
+  closes it on any navigation - link click, browser back, or a `router.push`
+  from anywhere else - with no second render pass, and it satisfies React's
+  `set-state-in-effect` rule.
+- The scroll lock adds right padding equal to the scrollbar width. Without it
+  the page shifts sideways by roughly 15px the instant the drawer opens.
+
+While closed the drawer is `inert` and `invisible`, so it is neither a second
+copy of the navigation for a screen reader nor a set of hidden links sitting in
+the tab order.
+
 ## Motion
 
 Motion is subtle and functional: `--duration-fast` 120ms, `--duration-base`
@@ -213,8 +285,14 @@ used to review changes.
 
 ```bash
 cd frontend
-npm run verify        # typecheck, lint, contrast, production build
+npm run verify        # typecheck, lint, unit tests, contrast, production build
 ```
+
+Unit tests run on Node's built-in runner against dependency-free modules, so
+there is no test framework to install and no extra dependency in the bundle.
+They cover the two pieces of logic where a silent bug is expensive: WhatsApp
+link construction, which must refuse to invent a number, and active-route
+matching, which must not light up the wrong link.
 
 Individually: `npm run typecheck`, `npm run lint`, `npm run check:contrast`,
 `npm run build`. Backend checks live in `backend/` (`ruff`, `mypy`, `pytest`).

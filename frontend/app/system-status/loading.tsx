@@ -7,7 +7,7 @@ import { Surface } from "@/components/ui/surface";
  */
 export default function Loading() {
   return (
-    <Container as="main" className="flex flex-1 flex-col gap-10 py-14 md:py-20">
+    <Container className="flex flex-col gap-10 py-14 md:py-20">
       <p role="status" aria-live="polite" className="text-sm text-fg-muted">
         Checking service health&hellip;
       </p>

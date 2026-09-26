@@ -181,22 +181,37 @@ humera-automobile/
 │
 ├── frontend/
 │   ├── app/
-│   │   ├── layout.tsx              root layout, fonts, metadata
+│   │   ├── layout.tsx              root layout: html, body, shell, skip link
 │   │   ├── globals.css             design tokens (Tailwind v4 @theme)
 │   │   ├── page.tsx                technical placeholder
 │   │   ├── error.tsx               route error boundary
 │   │   ├── global-error.tsx        root-layout fallback
 │   │   ├── not-found.tsx           404
-│   │   └── system-status/          live diagnostic page
-│   ├── components/ui/              Container, Surface, Badge,
-│   │                               SectionHeading, ActionLink
-│   ├── features/system-status/     feature-scoped components
+│   │   ├── system-status/          live diagnostic page
+│   │   └── system/design/          internal, noindex component showcase
+│   ├── components/
+│   │   ├── ui/                     Container, Surface, Badge, Button, Field,
+│   │   │                           Card, state components, button-styles.ts
+│   │   ├── layout/                 site-header, site-footer, nav-list, mobile-nav
+│   │   ├── brand/                  logo.tsx (wordmark + monogram)
+│   │   ├── cta/                    whatsapp-cta, contact-actions
+│   │   └── icons.ts                the only lucide-react import
+│   ├── config/site.ts              verified business facts, optional channels
+│   ├── navigation/
+│   │   ├── config.ts               every nav item, live or planned
+│   │   └── active.ts               active-route matching
+│   ├── features/
+│   │   ├── system-status/          feature-scoped components
+│   │   └── design-system/          showcase sections
 │   ├── lib/
 │   │   ├── env.ts                  validated environment access
 │   │   ├── cn.ts                   className joiner
+│   │   ├── whatsapp.ts             link construction + refusal rules
 │   │   └── api/                    client.ts, errors.ts, health.ts
+│   ├── fonts/                      self-hosted WOFF2 subsets + OFL licence
 │   ├── types/api.ts                API contract types
 │   ├── public/
+│   ├── scripts/check-contrast.mjs  token contrast audit
 │   ├── .env.example
 │   ├── next.config.ts              typedRoutes, image formats
 │   ├── eslint.config.mjs
@@ -205,6 +220,7 @@ humera-automobile/
 │
 ├── docs/
 │   ├── architecture.md             full architecture + future direction
+│   ├── design-system.md            tokens, components, shell conventions
 │   ├── database.md                 schema, migrations, planned entities
 │   └── api.md                      endpoints, conventions, errors
 │
@@ -224,6 +240,16 @@ humera-automobile/
 - **No root `package.json` / workspace file.** The two applications have no shared
   dependencies, so a workspace would add indirection without benefit. Add one if
   that changes.
+- **No test framework in `frontend/`.** Unit tests run on Node's built-in
+  runner using native TypeScript, so there is nothing to install. The tested
+  modules are deliberately dependency-free to keep that possible. The backend
+  keeps `pytest`, which is the right tool there. This is why `engines.node` is
+  `>=24.0.0` rather than Next's own `>=20.9.0`: unflagged TypeScript type
+  stripping in `node --test` landed in Node 23.6, and on Node 20 the test step
+  of `npm run verify` would fail.
+- **No headless UI library for the drawer.** ~100 lines of hand-written focus
+  management beats a dependency that ships its own React and state model, in a
+  site that will otherwise ship very little client JavaScript.
 
 ---
 
@@ -232,7 +258,7 @@ humera-automobile/
 | Tool | Version | Check |
 | --- | --- | --- |
 | Python | 3.12+ | `python --version` |
-| Node.js | 20.9+ | `node --version` |
+| Node.js | 24+ | `node --version` |
 | PostgreSQL | 14+ (17 recommended) | `psql --version` |
 | npm | 10+ | `npm --version` |
 
@@ -408,9 +434,16 @@ npm start            # serve the production build
 | --- | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | **Yes** | `http://localhost:8000` | Backend base URL |
 | `NEXT_PUBLIC_SITE_URL` | No | `http://localhost:3000` | Canonical site origin |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | No | none | Enquiry number; every WhatsApp CTA is disabled until set |
 
 > `NEXT_PUBLIC_*` values are **inlined into the browser bundle at build time**.
 > Never put a secret in one. Changing one requires a rebuild, not just a restart.
+
+> `NEXT_PUBLIC_WHATSAPP_NUMBER` accepts `+971501234567`,
+> `00971501234567`, `0501234567` and spaced or bracketed variants. A value
+> containing stray characters, or outside E.164 length bounds, is **rejected**:
+> CTAs render disabled rather than linking to a number that may not exist. An
+> enquiry sent to the wrong number is worse than no enquiry button.
 
 ### Production start-up guard
 
@@ -464,8 +497,11 @@ Enforced by tooling, not convention alone.
 
 - `strict: true` plus `typedRoutes`. A mistyped `href` is a compile error.
 - Server Components by default. `'use client'` only for genuine interactivity -
-  currently just the two error boundaries.
+  currently the two error boundaries, `NavList` and `MobileNav`.
 - Components never call `fetch`. Add a typed wrapper in `lib/api/`.
+- `<main id="main-content" tabIndex={-1}>` is written once in
+  `app/layout.tsx`. Pages render content only.
+- Navigation is declared in `navigation/config.ts` and nowhere else.
 - `npm run typecheck` and `npm run lint` must pass.
 
 ### Python
@@ -519,16 +555,38 @@ Enforced by tooling, not convention alone.
 | Security primitives | Argon2id hashing, session IDs, token primitives, digests |
 | Database | PostgreSQL 17; SQLAlchemy 2 async; Alembic configured |
 | Schema | 1 table (`users`), 1 migration, verified against live PostgreSQL |
-| Frontend | Starts; strict TS; typed routes; production build passes |
-| Design system | Tokens for colour, type, spacing, radius, elevation, motion |
-| Accessibility | Focus ring, reduced motion, semantic HTML, status text |
 | Tests | 29 backend tests passing |
 | Docs | README + architecture + database + API |
+
+### Step 2 - design system (complete and verified)
+
+| Area | State |
+| --- | --- |
+| Tokens | Colour ramps, semantic + action tokens, type scale, spacing, radius, elevation, motion |
+| Dark scheme | First-class, `prefers-color-scheme` driven, contrast-audited |
+| Contrast | Every token pairing passes WCAG AA in both schemes, enforced by script |
+| Components | Buttons, forms, cards, badges, layout, and a state component for every async view |
+| Icons | Single curated re-export; nothing imports `lucide-react` directly |
+| Showcase | `/system/design` renders the real components, `noindex` |
+| Fonts | Inter + Sora self-hosted, subset WOFF2, OFL licence vendored |
+
+### Step 3 - global shell (complete and verified)
+
+| Area | State |
+| --- | --- |
+| Layout | One `<main id="main-content">`, skip link, sticky header, footer, mounted once in `app/layout.tsx` |
+| Header | Server Component. Desktop nav at `lg`, drawer trigger below |
+| Mobile drawer | Focus trap, Escape, scroll lock with scrollbar-width padding, focus restore, `inert` when closed |
+| Navigation | Config-driven; every item `live` or `planned`, with unbuilt routes rendered inert rather than as dead links |
+| Active state | One shared matcher, unit tested against the two obvious wrong implementations |
+| Business facts | Showroom address only. No invented phone, email or social links |
+| WhatsApp | Env-driven with strict validation; CTAs disable rather than link to an unverified number |
+| Client JS | Two islands only (`NavList`, `MobileNav`); header and footer are server-rendered |
 
 ### Not yet built (later steps)
 
 Vehicle inventory, search and filtering; individual vehicle pages; comparison;
-shortlisting; enquiry forms; WhatsApp and phone hand-off; vehicle sourcing and
+shortlisting; enquiry forms; phone hand-off; vehicle sourcing and
 sell-your-car requests; export requests and quotations; customer accounts;
 authentication screens; admin dashboard; CRM/lead management; SEO content;
 deployment and CI/CD.
@@ -546,7 +604,11 @@ deployment and CI/CD.
 | `alembic check` | No drift |
 | `tsc --noEmit` | Clean |
 | `eslint .` | Clean |
+| `node --test` | 29 passed (WhatsApp URL rules, active-route matching) |
+| `npm run check:contrast` | All token pairings pass AA, light and dark |
 | `next build` | Succeeded |
+| Rendered route audit | Every route emits exactly one `<main>`, one site `<header>`, one `<footer>` |
+| Link audit | No anchor points at an unbuilt route; no `tel:`, `mailto:` or social URL is fabricated |
 | `next dev` + live backend | 30/30 end-to-end checks passed |
 
 ---

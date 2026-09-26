@@ -49,7 +49,7 @@ export default async function SystemStatusPage() {
     readiness.value.status === "ready";
 
   return (
-    <Container as="main" className="flex flex-1 flex-col gap-10 py-14 md:py-20">
+    <Container className="flex flex-col gap-10 py-14 md:py-20">
       <SectionHeading
         eyebrow="Diagnostics"
         title="System status"

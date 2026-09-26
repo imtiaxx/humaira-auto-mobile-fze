@@ -23,7 +23,7 @@ export default function AppError({
   }, [error]);
 
   return (
-    <main className="container-page flex flex-1 flex-col items-start justify-center gap-4 py-24">
+    <div className="container-page flex flex-col items-start justify-center gap-4 py-24">
       <p className="text-xs font-semibold tracking-[0.18em] text-danger uppercase">
         Something went wrong
       </p>
@@ -41,6 +41,6 @@ export default function AppError({
       >
         Try again
       </button>
-    </main>
+    </div>
   );
 }

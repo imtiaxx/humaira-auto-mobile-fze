@@ -23,6 +23,7 @@ export {
   // Directional
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -31,6 +32,7 @@ export {
   Copy,
   ExternalLink,
   Menu,
+  MessageCircle,
   Minus,
   Plus,
   Search,

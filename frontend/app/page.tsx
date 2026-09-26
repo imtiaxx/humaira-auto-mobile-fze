@@ -40,8 +40,7 @@ const NOT_YET = [
 
 export default function HomePage() {
   return (
-    <>
-      <Container as="main" className="flex flex-1 flex-col gap-14 py-16 md:py-24">
+    <Container className="flex flex-col gap-14 py-16 md:py-24">
         <section className="flex max-w-3xl flex-col gap-5">
           <Badge tone="accent">Step 1 &middot; Foundation</Badge>
           <h1 className="text-4xl font-semibold text-fg">
@@ -93,13 +92,5 @@ export default function HomePage() {
           </Surface>
         </section>
       </Container>
-
-      <footer className="rule-top mt-auto">
-        <Container className="flex flex-col gap-1 py-6 text-xs text-fg-muted">
-          <p className="font-medium text-fg-secondary">Humera Automobile</p>
-          <p>Dubai, United Arab Emirates</p>
-        </Container>
-      </footer>
-    </>
   );
 }

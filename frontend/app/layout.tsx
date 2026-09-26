@@ -1,6 +1,10 @@
 import type { Metadata, Viewport } from "next";
 
 import { inter, sora } from "@/app/fonts";
+import { WhatsAppFloat } from "@/components/cta/whatsapp-cta";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { SiteHeader } from "@/components/layout/site-header";
+import { SITE_DESCRIPTION, SITE_NAME } from "@/config/site";
 import "./globals.css";
 
 /**
@@ -17,13 +21,12 @@ import "./globals.css";
  * maps onto the `--font-sans` / `--font-display` theme tokens.
  */
 
-const SITE_NAME = "Humera Automobile";
-const SITE_DESCRIPTION =
-  "Humera Automobile is a Dubai-based vehicle sales and international export business.";
-
 /**
  * Title strategy: the root supplies an absolute default plus a template, so
  * every page renders "<page> | Humera Automobile" without repeating the brand.
+ *
+ * `SITE_NAME` comes from `config/site.ts` rather than being restated here, so
+ * the brand name has exactly one definition in the project.
  */
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
@@ -64,7 +67,46 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-scroll-behavior="smooth"
       className={`${inter.variable} ${sora.variable} h-full`}
     >
-      <body className="flex min-h-full flex-col bg-page text-fg">{children}</body>
+      <body className="flex min-h-full flex-col bg-page text-fg">
+        {/*
+          Skip link. First in the DOM and visually hidden until focused, so a
+          keyboard user can jump past the header's eight navigation items on
+          every page instead of tabbing through them each time. The `focus`
+          variant - not `focus-visible` - because a skip link has to appear for
+          keyboard users, who are exactly the people `focus-visible` is
+          unreliable for.
+        */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:rounded-sm focus:border focus:border-line-control focus:bg-raised focus:px-4 focus:py-2.5 focus:text-body-sm focus:font-semibold focus:text-fg focus:shadow-md"
+        >
+          Skip to main content
+        </a>
+
+        <SiteHeader />
+
+        {/*
+          The single `<main>` for the site. It lives here rather than in each page
+          so a page can never ship a second one, and so `flex-1` pushes the footer
+          to the bottom of the viewport on any page shorter than the window.
+
+          `id` is the skip link's target. `tabIndex={-1}` is required: without
+          it, following the skip link moves the viewport but not keyboard focus,
+          so the next Tab continues from the top of the document and the skip
+          appears to have done nothing.
+        */}
+        <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
+          {children}
+        </main>
+
+        <SiteFooter />
+
+        {/*
+          Floating contact action. Renders nothing until a WhatsApp number is
+          configured, so it costs no DOM today.
+        */}
+        <WhatsAppFloat />
+      </body>
     </html>
   );
 }
