@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { WhatsAppCta } from "@/components/cta/whatsapp-cta";
-import { Car, MapPin } from "@/components/icons";
+import { ArrowUpRight, Car, MapPin } from "@/components/icons";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Surface } from "@/components/ui/surface";
 import { VEHICLE_STATUS_LABELS } from "@/features/vehicles/lib/inventory";
@@ -68,11 +68,26 @@ import type { Vehicle } from "@/types/vehicle";
  * Images
  * ---------------------------------------------------------------------------
  * `next/image` is used for real photography so the tile gets lazy loading, a
- * fixed intrinsic box and AVIF/WebP. The repository has no vehicle photography
- * yet, so `images` is empty and the placeholder branch is what renders today.
- * When a CDN host is added, its `remotePatterns` entry belongs in the same
- * commit as the first real `src` - `next.config.ts` says so at the list.
+ * fixed intrinsic box and AVIF/WebP. The stock published today is served by the
+ * API's own media route, so the same photograph is optimised twice on the way to
+ * a tile: once by the backend on upload, once here for the size actually
+ * requested. The placeholder branch above still carries the majority of the
+ * contract - a vehicle can genuinely have no photo - so both paths stay.
  *
+ * A short top-down scrim sits over the image. Photography is unpredictable, and
+ * a badge or edge placed directly on it has to stay legible against a pale sky
+ * shot and a dark night shot alike.
+ *
+ * ---------------------------------------------------------------------------
+ * Colour
+ * ---------------------------------------------------------------------------
+ * The tile inherits the page's deep palette from the `on-inverse` scope the
+ * route opens, so `bg-raised`, `text-fg` and `border-line` are already the dark
+ * values here. The only accent the resting tile spends is the price chip; the
+ * border turns red on hover and on `focus-within`, so the colour is a response
+ * rather than a decoration on all thirteen tiles at once.
+ *
+ * ---------------------------------------------------------------------------
  * No state, no event handlers: a Server Component that ships no JavaScript.
  */
 
@@ -120,15 +135,33 @@ export function VehicleCard({
       as="article"
       // `relative` establishes the containing block for the title link's stretched
       // `after` overlay, so the hit area is the card rather than the page.
-      className={cn("relative flex w-full flex-col overflow-hidden", className)}
+      //
+      // `group` is what carries the hover story to the children that need it -
+      // the photograph's zoom and the title's colour shift - which cannot be
+      // expressed by styling this element alone.
+      //
+      // The border is the card's rest state and the accent is its hover state,
+      // so the red arrives with the pointer rather than sitting on all thirteen
+      // tiles at once. `focus-within` mirrors it: tabbing to the card's link
+      // produces the same emphasis a hover does, which is the whole point of the
+      // stretched overlay.
+      className={cn(
+        "group relative flex w-full flex-col overflow-hidden",
+        "transition-[border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
+        "hover:border-accent-600 hover:shadow-md focus-within:border-accent-600",
+        className,
+      )}
     >
       {/*
         The image area is a fixed ratio box rather than an intrinsically-sized
         one, so every tile in the grid is the same height whether or not it has
         a photograph. A grid of tiles that resize as images load is the most
         visible layout fault a listing page can have.
+
+        `overflow-hidden` contains the hover zoom, which would otherwise push
+        the photograph past the card's rounded corners.
       */}
-      <div className="relative aspect-[4/3] w-full border-b border-line bg-sunken">
+      <div className="relative aspect-[4/3] w-full overflow-hidden border-b border-line bg-sunken">
         {image ? (
           <Image
             src={image.src}
@@ -140,7 +173,7 @@ export function VehicleCard({
             // for a 300px tile. The 50vw/100vw figures are the tile's share of
             // a 1/2/3-column grid.
             sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-            className="size-full object-cover"
+            className="size-full object-cover transition-transform duration-[var(--duration-slow)] ease-[var(--ease-standard)] group-hover:scale-[1.04]"
           />
         ) : (
           /*
@@ -159,6 +192,17 @@ export function VehicleCard({
             </span>
           </div>
         )}
+
+        {/*
+          A short scrim from the top edge. Real photography is unpredictable - a
+          pale sky shot and a dark night shot both land here - and a status badge
+          sitting directly on the image has to stay legible against either. It is
+          black at partial opacity, which works on any photograph.
+        */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-[linear-gradient(to_bottom,rgb(0_0_0/0.45),transparent)]"
+        />
 
         {EXCEPTION_STATES.includes(vehicle.status) ? (
           <Badge tone={STATUS_TONES[vehicle.status]} dot className="absolute top-3 left-3">
@@ -185,10 +229,10 @@ export function VehicleCard({
             button inside a link would be invalid HTML, which is why the overlay
             approach is used rather than wrapping the card contents.
           */}
-          <Heading className="text-h4 text-fg text-balance">
+          <Heading className="text-h4 text-fg text-balance transition-colors duration-[var(--duration-fast)] group-hover:text-fg-accent">
             <Link
               href={vehiclePath(vehicle.slug)}
-              className="after:absolute after:inset-0 after:content-[''] hover:underline"
+              className="after:absolute after:inset-0 after:content-['']"
             >
               {title}
             </Link>
@@ -210,17 +254,58 @@ export function VehicleCard({
         </p>
 
         {/*
-          The price line, pushed to the bottom of the tile with `mt-auto` so it
-          sits on a consistent baseline across a row of tiles whose description
-          lengths differ. It is the number a buyer scans for, so it gets
-          `text-fg` at body weight rather than being styled as secondary text.
+          The price block, on a rule of its own so the number reads as the
+          tile's bottom line rather than as another line of specifications.
 
-          `formatVehiclePrice` is shared with the detail page, so the two can never
-          disagree about how a car is priced. It also decides the "Sold" case, so
-          this line does not branch on status itself.
+          `mt-auto` keeps it on a consistent baseline across a row of tiles whose
+          title and variant lengths differ.
+
+          Two treatments, both from the token layer and neither from a component
+          of its own:
+
+            - a live price, or a request for one, gets the brand accent as a
+              filled chip with near-black type. That is the same
+              `action-accent` / `action-accent-content` pairing the primary
+              button uses, so the number on the card and the button that offers
+              to act on it are visibly the same thing. Most of the inventory is
+              "Price on request", so this treatment has to carry those cards
+              too - a muted line reading "Price on request" would read as a
+              missing price rather than as an offer.
+
+            - a sold vehicle is the one case that must not shout. It gets the
+              neutral sunken chip, because a red price on a car that is no
+              longer available is a claim the tile should not be making.
+
+          `tnum` because these are the figures being compared down the column.
         */}
-        <div className="mt-auto flex flex-col gap-1 pt-1">
-          <p className="text-body font-semibold text-fg">{formatVehiclePrice(vehicle)}</p>
+        <div className="mt-auto flex flex-col gap-3 border-t border-line pt-4">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <p
+              className={cn(
+                "tnum inline-flex items-center rounded-xs px-2.5 py-1 text-body-sm font-semibold uppercase tracking-[0.06em]",
+                vehicle.status === "sold"
+                  ? "border border-line bg-sunken text-fg-secondary"
+                  : "bg-action-accent text-action-accent-content",
+              )}
+            >
+              {formatVehiclePrice(vehicle)}
+            </p>
+
+            {/*
+              A destination hint, not a second link. The stretched overlay above
+              already carries the tile to this vehicle, so another link here
+              would put the same address in the tab order twice; and the words
+              restate what the tile's own link already announced, so they are
+              hidden from assistive technology and exist for a sighted pointer.
+            */}
+            <span
+              aria-hidden="true"
+              className="flex items-center gap-1 text-caption text-fg-muted"
+            >
+              View details
+              <ArrowUpRight className="size-3.5" />
+            </span>
+          </div>
 
           {vehicle.location ? (
             <p className="flex items-center gap-1.5 text-caption text-fg-muted">

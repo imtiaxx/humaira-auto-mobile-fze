@@ -12,11 +12,15 @@ produced by :func:`app.core.security.hash_password`.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from app.db.models.staff_session import StaffSession
 
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -77,6 +81,12 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=True,
         doc="Last successful authentication. Drives inactive-account reports.",
+    )
+    sessions: Mapped[list[StaffSession]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="raise",
+        doc="Server-side staff sessions. `raise` because a page must never lazy-load these.",
     )
 
     def __repr__(self) -> str:  # pragma: no cover - developer convenience

@@ -1,4 +1,7 @@
+import Link from "next/link";
+
 import { Container } from "@/components/ui/container";
+import { buttonClasses } from "@/components/ui/button-styles";
 
 /**
  * The inventory page header.
@@ -49,8 +52,33 @@ export function InventoryHeader() {
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(ellipse_60%_60%_at_30%_0%,var(--surface-raised),transparent)]"
       />
 
+      {/*
+        The brand's one piece of colour on the page. A second, much smaller
+        gradient in `--color-accent-700` on the opposite side, held at low
+        opacity so it reads as depth behind the copy rather than as a red glow
+        competing with the headline. It is the same accent the CTA, the active
+        nav rule and the price chips use, so the page has one colour story.
+      */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_45%_55%_at_88%_8%,var(--color-accent-700),transparent)] opacity-25"
+      />
+
+      {/* A single red hairline along the top edge, the page's strongest accent. */}
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-action-accent" />
+
       <Container className="py-14 sm:py-16 lg:py-20">
         <div className="flex max-w-3xl flex-col gap-4">
+          {/*
+            The eyebrow carries the red on this band. A short red rule ahead of
+            the words is a catalogue convention, and it means the colour appears
+            in the type's own rhythm rather than only behind it.
+          */}
+          <p className="flex items-center gap-3 text-label text-fg-accent uppercase">
+            <span aria-hidden="true" className="h-px w-8 bg-action-accent" />
+            Dubai showroom
+          </p>
+
           {/* The page's only `h1`. Nothing below it may introduce another. */}
           <h1 id="inventory-heading" className="text-display text-fg text-balance">
             Vehicle inventory
@@ -61,6 +89,24 @@ export function InventoryHeader() {
             can source on request. Tell us the make, model, year and budget you
             are working to and we will come back to you with what is available.
           </p>
+
+          {/*
+            The one action this band offers, pointing at the listings further
+            down the same page - so it is an in-page anchor, not a new route, and
+            it cannot 404. `buttonClasses` is imported from the recipe module
+            rather than the `Button` component because this is a Server Component
+            and `Button` is a client island; the recipe is the same one, without
+            the client boundary. `scroll-mt` on the target heading clears the
+            sticky header when the jump lands.
+          */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-3">
+            <Link href="#listings-heading" className={buttonClasses("accent", "lg")}>
+              Browse available vehicles
+            </Link>
+            <span className="text-caption text-fg-muted">
+              All prices in USD &middot; sourcing on request
+            </span>
+          </div>
         </div>
       </Container>
     </section>

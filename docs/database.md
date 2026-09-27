@@ -2,9 +2,10 @@
 
 PostgreSQL 17, SQLAlchemy 2.1 (Declarative, async), Alembic 1.20.
 
-**Current state: one table (`users`) and one migration.** The remaining
-business entities are planned but not yet modelled - see
-[Planned entities](#planned-entities-not-yet-created).
+**Current state: four tables (`users`, `staff_sessions`, `vehicles`,
+`vehicle_images`) across three migrations.** The remaining business entities -
+`Customer`, quotations, the CRM - are planned but not yet modelled; see
+[Planned entities](#5-planned-entities-not-yet-created).
 
 There is **no seed data, no demo vehicles and no fake statistics** in this
 database by design.
@@ -248,12 +249,53 @@ Verified against a live PostgreSQL 17.10 instance: `upgrade head`, then
 availability, malformed VINs and duplicate slugs or VINs are all rejected by the
 database itself, not only by the application.
 
+### `staff_sessions`
+
+One authenticated staff browser session. Created by revision
+`44e9718a5560`, alongside the archiving columns on `vehicles`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `UUID` | Primary key, v4 |
+| `user_id` | `UUID` | → `users.id`, indexed, `ON DELETE CASCADE` |
+| `token_hash` | `CHAR(64)` | SHA-256 hex digest of the session token, **uniquely indexed**. The token itself is never stored |
+| `expires_at` | `TIMESTAMPTZ` | Not null. Hard expiry, enforced on every request |
+| `last_used_at` | `TIMESTAMPTZ` | Not null. Refreshed at most every `SESSION_LAST_USED_REFRESH_SECONDS` |
+| `created_at` | `TIMESTAMPTZ` | Default `now()` |
+| `updated_at` | `TIMESTAMPTZ` | Default `now()`, auto-updated |
+
+Indexes: `pk_staff_sessions` (primary key), `ix_staff_sessions_user_id`,
+`ix_staff_sessions_token_hash` (unique), `ix_staff_sessions_expires_at`.
+
+**Only the digest is stored.** A database disclosure - a leaked backup, an SQL
+injection, a dumped replica - yields digests that cannot be replayed as sessions,
+because the token itself is never written down. The digest is indexed and unique
+because every authenticated request resolves a session by it.
+
+**Sessions are deleted, not flagged.** A row is a live session, full stop. There
+is no `revoked_at`, so there is no state in which a session is simultaneously
+invalid and present, and no query that has to remember to exclude it. Sign-out
+deletes the row, which is also what makes revocation immediate.
+
+`expires_at` is enforced by the application on every request rather than by a
+sweeper, so a lapsed session is refused the moment it lapses.
+`python -m app.cli purge_expired_sessions` reclaims rows for storage; it is not
+the security mechanism.
+
+`ix_staff_sessions_expires_at` exists so that purge is a range scan rather than a
+sequential read of the table.
+
 ### Zero rows, and that is correct
 
 `vehicles` and `vehicle_images` contain **no rows**. `docs/architecture.md` is
 explicit that no seed data, fake vehicles or fake statistics may exist, and the
 business has not published stock. Every example in this file and in `docs/api.md`
 is a placeholder showing shape; none of it exists in the database.
+
+`staff_sessions` is also empty, and `users` is empty until an operator runs
+`python -m app.cli create_staff`. There is no registration endpoint, so there is
+no way for the database to acquire a staff account other than a human running that
+command on the server.
 
 An empty inventory is a valid state that the API and the frontend both render
 correctly. It is not a failure to be backfilled with sample data.

@@ -79,7 +79,18 @@ export default async function InventoryPage() {
   const vehicles = await listVehicles();
 
   return (
-    <>
+    /*
+      `on-inverse` opens the deep palette for this whole page. The wrapper is the
+      only thing that changed visually at page level: every `bg-page`,
+      `text-fg`, `text-fg-secondary`, `border-line` and `bg-raised` beneath it
+      resolves to its inverse value, so the sections below were already written
+      against the token layer and now read as one near-black marketplace without
+      a single new colour value being introduced.
+
+      The header and footer live in the marketing layout, outside this wrapper,
+      so they keep the treatment they have on every other public page.
+    */
+    <div className="on-inverse bg-page">
       {/*
         `InventoryHeader` owns the page's only `h1`. Every section below it
         starts at `h2`, so the outline is h1 > h2 with nothing skipped.
@@ -96,6 +107,6 @@ export default async function InventoryPage() {
       <VehicleGrid vehicles={vehicles} />
 
       <InventoryCta />
-    </>
+    </div>
   );
 }

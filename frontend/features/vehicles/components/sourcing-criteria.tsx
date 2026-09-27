@@ -81,6 +81,13 @@ export function SourcingCriteria() {
         <dl className="mt-10 grid grid-cols-1 gap-x-8 gap-y-8 border-t border-line pt-8 sm:grid-cols-2 lg:grid-cols-4">
           {CRITERIA.map(({ label, detail }) => (
             <div key={label} className="flex flex-col gap-1.5">
+              {/*
+                A short accent rule above each term. The list already carries one
+                structural rule along its top edge, so this is the only place the
+                brand colour enters this band, and it marks the four things worth
+                sending without turning the band into four coloured cards.
+              */}
+              <span aria-hidden="true" className="h-px w-6 bg-action-accent" />
               <dt className="text-label text-fg-accent uppercase">{label}</dt>
               <dd className="text-body-sm text-fg-secondary">{detail}</dd>
             </div>

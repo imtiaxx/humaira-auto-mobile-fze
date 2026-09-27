@@ -8,13 +8,13 @@ import type { Vehicle } from "@/types/vehicle";
  * The results area: the vehicle grid, or an honest account of it being empty.
  *
  * ---------------------------------------------------------------------------
- * Both branches are the product right now
+ * Both branches are still the product
  * ---------------------------------------------------------------------------
- * `listVehicles()` returns an empty array today, so the empty state is what a
- * visitor sees. It is written as a first-class state of this page rather than as
- * a placeholder for one, because that is the truthful description of the
- * business: a confirmed showroom and a confirmed trade, with no stock published
- * to the web.
+ * The grid is what a visitor sees now that stock is published, and the empty
+ * state remains a real branch: every vehicle can be archived, and a catalogue
+ * whose last listing has been archived must still have something true to say.
+ * It is written as a first-class state rather than a placeholder for one,
+ * because the business trades whether or not anything is listed online.
  *
  * The wording is chosen carefully, because most empty states get this wrong in
  * one of two directions:
@@ -55,6 +55,8 @@ export function VehicleGrid({
    */
   headingId?: string;
 }) {
+  const count = vehicles.length;
+
   return (
     <section aria-labelledby={headingId} className="bg-page">
       <Container className="py-16 sm:py-20">
@@ -62,12 +64,17 @@ export function VehicleGrid({
           titleId={headingId}
           eyebrow="Listings"
           title="Vehicles available now"
-          description="Vehicles published by Humera Automobile appear here with their specification, price and location."
+          className="scroll-mt-28"
+          description={
+            count > 0
+              ? `${count} ${count === 1 ? "vehicle" : "vehicles"} published by Humera Automobile, each with its specification and its USD price. A vehicle with no published figure is marked price on request - ask for it and we will quote.`
+              : "Vehicles published by Humera Automobile appear here with their specification, price and location."
+          }
         />
 
         <div className="mt-10">
-          {vehicles.length > 0 ? (
-            <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {count > 0 ? (
+            <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {vehicles.map((vehicle) => (
                 <li key={vehicle.id} className="flex">
                   <VehicleCard vehicle={vehicle} />

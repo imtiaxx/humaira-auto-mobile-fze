@@ -1,0 +1,50 @@
+# Secrets. `.env` holds the database password and the session signing key, so it
+# is never committed - `.env.example` is the committed template instead.
+.env
+.env.*
+!.env.example
+
+# Uploaded vehicle photographs. These are content, not source: they belong in
+# object storage or a deployed volume, and committing them would put staff-uploaded
+# files and their size into the history permanently. A deletion cannot be undone by
+# a fresh clone.
+media/
+!media/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Type checker and linter scratch files
+.mypy_cache/
+*.tsbuildinfo
+
+# Editors and OS cruft
+.vscode/
+.idea/
+*.swp
+*.suv
+.DS_Store
+Thumbs.db
+desktop.ini

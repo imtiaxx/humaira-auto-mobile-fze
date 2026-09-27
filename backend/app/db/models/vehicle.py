@@ -46,12 +46,14 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
 from sqlalchemy import (
     JSON,
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -206,6 +208,17 @@ class Vehicle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         # and passing a bare column string would be read as the index *name*,
         # producing an index with no columns at all.
         Index("ix_vehicles_created_at", "created_at"),
+        # Partial index for the public listing, which reads
+        # `WHERE archived_at IS NULL`. Partial because the archived rows are the
+        # ones nothing queries by default: keeping them out of the index makes
+        # it no larger than the live inventory, and archiving a vehicle does not
+        # touch it at all.
+        Index(
+            "ix_vehicles_active_created_at",
+            "created_at",
+            postgresql_where=text("archived_at IS NULL"),
+            sqlite_where=text("archived_at IS NULL"),
+        ),
     )
 
     slug: Mapped[str] = mapped_column(
@@ -286,6 +299,21 @@ class Vehicle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         default="available",
         server_default=text("'available'"),
         doc="One of: available, reserved, sold.",
+    )
+    #: Set when staff withdraw a vehicle from sale, `NULL` while it is live.
+    #:
+    #: Archiving rather than deleting is the whole point of this column. A
+    #: published vehicle has a live URL, may appear in a search engine index, a
+    #: WhatsApp message or a bookmark, and a hard delete turns all of those into
+    #: 404s. Archiving keeps the row, its images and its history intact while
+    #: removing it from every public surface, and restoring it is a single
+    #: update. `availability` is deliberately *not* reused for this: "sold" is a
+    #: fact about a car, while archived is a decision about whether we are
+    #: currently offering it, and the two can disagree.
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        doc="Withdrawn from public sale. NULL means the vehicle is published.",
     )
     location: Mapped[str | None] = mapped_column(
         String(160),

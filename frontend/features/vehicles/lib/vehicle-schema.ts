@@ -54,6 +54,16 @@
  * could not carry.
  */
 
+// Relative, with the extension, unlike every other import in this file.
+//
+// `import type` above is erased before Node executes anything, so those specifiers
+// never have to resolve. This one is a real runtime import: `node --test` runs
+// `vehicle-schema.test.ts` directly, and Node's test runner is not Next's bundler
+// and does not read `tsconfig.json`'s `paths`. The `@/` specifier resolves fine in
+// the app and throws `ERR_MODULE_NOT_FOUND` in the test. Relative-with-extension
+// is the one form both accept, which is why `tsconfig.json` sets
+// `allowImportingTsExtensions` - TypeScript permits it, and it costs nothing.
+import { normaliseSlug } from "../../../lib/slug.ts";
 import type { Vehicle, VehicleImage, VehicleStatus } from "@/types/vehicle";
 import type { VehicleRecord } from "@/lib/api/vehicles";
 
@@ -130,19 +140,14 @@ function number(value: unknown): number | null {
  * slug is rejected, because `types/vehicle.ts` is explicit that the slug is
  * stored rather than derived from make and model, and a derived slug changes
  * every link to the vehicle when the make is corrected.
+ *
+ * The implementation is `lib/slug.ts`, shared with the staff editor. A field
+ * normalised one way on the way in and another way on the way out produces a
+ * vehicle whose public URL 404s, and the two rules are far too easy to drift
+ * apart across features.
  */
 function slug(value: unknown): string | null {
-  const raw = text(value);
-  if (raw === null) return null;
-
-  const cleaned = raw
-    .toLowerCase()
-    .replace(/[\s_/]+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-    .replace(/-{2,}/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return cleaned.length > 0 ? cleaned : null;
+  return normaliseSlug(value);
 }
 
 /**

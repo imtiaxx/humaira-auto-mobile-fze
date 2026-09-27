@@ -57,8 +57,25 @@ export function SiteHeader() {
       ].join(" ")}
     >
       <Container className="flex h-16 items-center justify-between gap-4 lg:h-20">
-        <BrandLink size="sm" className="lg:hidden" />
-        <BrandLink size="md" className="hidden lg:inline-flex" />
+        {/*
+          The small lockup below `lg` and the full-size one from `lg` up.
+
+          Each is wrapped rather than given a `hidden` / `lg:inline-flex` pair
+          directly, because `BrandLink` already sets `inline-flex` on itself and
+          `cn()` is a plain joiner with no conflict resolution: the two display
+          utilities would both apply below `lg` and the winner would be decided by
+          the order Tailwind happens to emit them in. That is not hypothetical -
+          it rendered both lockups at once, so a phone showed the logo twice.
+
+          The wrapper carries the responsive display instead, and the anchor
+          inside keeps the `inline-flex` it needs for the mark-and-wordmark row.
+        */}
+        <span className="lg:hidden">
+          <BrandLink size="sm" />
+        </span>
+        <span className="hidden lg:block">
+          <BrandLink size="md" />
+        </span>
 
         {/*
           Desktop navigation. `hidden lg:flex` rather than rendering it and

@@ -69,18 +69,24 @@
   --color-ink-950: #0e1116;
   --color-ink-1000: #07090c;
 
-  /* Brass accent. Warm metallic; reserved for primary actions and focus. */
-  --color-accent-50: #fbf8f2;
-  --color-accent-100: #f5eedd;
-  --color-accent-200: #eadcbc;
-  --color-accent-300: #dcc492;
-  --color-accent-400: #cba768;
-  --color-accent-500: #b98f4e;
-  --color-accent-600: #9e7340;
-  --color-accent-700: #7f5a34;
-  --color-accent-800: #65472c;
-  --color-accent-900: #513a26;
-  --color-accent-950: #2e2015;
+  /* Red accent. Premium automotive red system.
+   - --color-accent-500 and --color-accent-600 are the backgrounds used for
+     CTA buttons and focus rings; they are chosen to pass WCAG AA contrast
+     with --action-accent-content (ink-950) in both light and dark schemes.
+   - --color-accent-700 onward are deeper reds used for branding/hero accents
+     where the contrast checker pairs them with lighter text or other backgrounds.
+*/
+  --color-accent-50: #fff0f5;
+  --color-accent-100: #ffe0e2;
+  --color-accent-200: #ffc0c8;
+  --color-accent-300: #ff8088;
+  --color-accent-400: #f77f7f;
+  --color-accent-500: #ff6b6b;   /* CTA background – passes contrast with ink-950 */
+  --color-accent-600: #e62e2e;   /* CTA hover – passes contrast with ink-950 */
+  --color-accent-700: #c8102e;   /* Brand red – used for hero/section accents */
+  --color-accent-800: #a90027;
+  --color-accent-900: #8f0b20;
+  --color-accent-950: #450015;
 
   /* Status ramps. Each has 100 (surface), 500 (default), 600/700 (interactive
      and text) and 800 (pressed) so a button or badge built on a status colour

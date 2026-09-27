@@ -2,9 +2,22 @@
 
 Base URL: `http://localhost:8000` &nbsp;|&nbsp; Version prefix: `/api/v1`
 
-**Step 1 exposes two endpoints.** Vehicle inventory, enquiries, export
-requests, authentication and admin resources are **not implemented** and will be
-added in later steps. Nothing in this document describes planned behaviour as if
+The API has three surfaces, and which one you are on determines everything
+else:
+
+| Surface | Prefix | Access | Purpose |
+| --- | --- | --- | --- |
+| Public | `/api/v1/vehicles` | Anonymous, `GET` only | Live inventory |
+| Staff | `/api/v1/auth`, `/api/v1/admin` | Active staff session | Run the dealership |
+| Operational | `python -m app.cli` | Server shell | Accounts and sessions |
+
+The split is structural, not documentary. Public and staff routes are separate
+routers under separate prefixes, so a privileged write cannot be one decorator
+away from a public read, and the public surface stays read-only without anyone
+having to remember.
+
+Enquiries, saved vehicles, export requests, quotations, filtering and the CRM are
+**not implemented**. Nothing in this document describes planned behaviour as if
 it worked.
 
 Interactive documentation is served at `/docs` (Swagger UI) and `/redoc`, with the
@@ -15,7 +28,8 @@ which should be the production setting.
 
 ## Conventions
 
-**Content type.** JSON in and out, except file uploads in later steps.
+**Content type.** JSON in and out, except `multipart/form-data` for image
+uploads.
 
 **Versioning.** Structural, under `/api/v1`. A breaking change introduces
 `/api/v2` alongside v1 rather than altering v1, so deployed clients keep
@@ -83,12 +97,12 @@ development-only behaviour.
 | `request_validation_error` | 422 | Body or query failed schema validation |
 | `authentication_required` | 401 | Not authenticated |
 | `permission_denied` | 403 | Authenticated but not allowed |
-| `conflict` | 409 | Conflicts with current state, e.g. duplicate email |
+| `conflict` | 409 | Conflicts with current state, e.g. duplicate slug |
 | `service_unavailable` | 503 | A dependency is unavailable |
 | `internal_error` | 500 | Unexpected failure |
 
-Only `not_found`, `request_validation_error` and `internal_error` are reachable
-today.
+`not_found`, `request_validation_error`, `validation_error`, `authentication_required`,
+`permission_denied` and `conflict` are all reachable today.
 
 ---
 
@@ -167,8 +181,8 @@ curl -i http://localhost:8000/api/v1/health/ready
 ### `GET /api/v1/vehicles`
 
 Public vehicle inventory. Read-only: the collection accepts `GET` only, and any
-other verb returns **405**. There is no admin or write surface at this stage, so
-there is no unauthenticated way to publish a vehicle.
+other verb returns **405**. Writes live on `/api/v1/admin/vehicles`, behind a
+staff session. There is no unauthenticated way to publish a vehicle.
 
 | Query | Type | Default | Notes |
 | --- | --- | --- | --- |
@@ -268,13 +282,17 @@ curl -i http://localhost:8000/api/v1/vehicles/no-such-vehicle
 
 ### Read-only by construction
 
-Both routes are `GET`-only. A `POST`, `PUT`, `PATCH` or `DELETE` to either
+Both public routes are `GET`-only. A `POST`, `PUT`, `PATCH` or `DELETE` to either
 returns **405** with an `Allow: GET` header rather than creating, altering or
 removing data. Verified by `test_vehicles_endpoints_are_read_only`.
 
-No endpoint accepts a write payload, so there is no request-body validation
-surface here yet. Input validation is limited to what a read needs: the two
-pagination bounds and the slug length.
+The public surface accepts no write payload at all, so there is no request-body
+validation surface here. Its only inputs are the two pagination bounds and the
+slug length. Everything that changes data is on `/api/v1/admin`.
+
+Archived vehicles are invisible here: they are excluded from the list, and their
+slug returns **404**. The row, its photographs and its history are all retained -
+see `docs/architecture.md` for why withdrawal is not deletion.
 
 ---
 
@@ -294,42 +312,390 @@ pagination bounds and the slug length.
 
 ## CORS
 
-The allow-list comes from `CORS_ORIGINS` (comma-separated). `localhost:3000` is
-allowed by default for local development. Credentials are permitted, and
-`X-Request-ID` and `X-Response-Time-ms` are exposed so the browser can read them.
+The allow-list comes from `CORS_ORIGINS`, as a comma-separated list
+(`http://localhost:3000,https://humera.example`) or a JSON array
+(`["http://localhost:3000"]`). Both are accepted; a malformed JSON array is
+rejected at start-up rather than silently becoming one unusable "origin".
 
-An origin not on the list is **not** reflected back - verified. A wildcard is
-rejected during production start-up.
+Credentials are permitted, and `X-Request-ID` and `X-Response-Time-ms` are
+exposed so the browser can read them. An origin not on the list is **not**
+reflected back - verified. A wildcard, or an empty list, is rejected during
+production start-up.
+
+This matters more than it looks. A session cookie is only sent on a cross-origin
+request when the request is made with credentials *and* the origin is explicitly
+allowed, so a missing or malformed `CORS_ORIGINS` produces a staff UI that loads
+perfectly and cannot sign in - with the only error in a browser console, pointing
+at the frontend rather than at the config file.
 
 ---
 
-## Planned resources (not implemented)
+## Authentication
 
-`/api/v1/vehicles` and `/api/v1/vehicles/{slug}` are now implemented - see
-above. The following are **not**, and no frontend code depends on them. They are
-listed so the shape of the API is predictable for the frontend.
+Staff authenticate once and hold an opaque session token. There is no
+registration and no password reset over HTTP: accounts exist because an operator
+created them with the CLI.
+
+### Why sessions and not JWTs
+
+A staff session is a random 256-bit token whose SHA-256 digest is stored in
+`staff_sessions`. The token is sent once, at sign-in, and never again in a
+readable form.
+
+The reason is revocation. A staff account is exactly the account that sometimes
+needs to be cut off *immediately* - a stolen laptop, a leaver, a compromised
+session. A self-contained token cannot be withdrawn before it expires; deleting
+the row is the only way, and that is precisely what this design does:
+
+```bash
+python -m app.cli set_active --email leaked@example.com --no-active
+python -m app.cli revoke_sessions --email leaked@example.com
+```
+
+Both take effect on the next request. `app/core/security.py` still contains a
+working JWT implementation, tested and unused. It is not a second authentication
+path to reach for - see the docstring on `create_token`.
+
+### `POST /api/v1/auth/login`
+
+Body: `{"email": "...", "password": "..."}`.
+
+| Outcome | Status | Code |
+| --- | --- | --- |
+| Credentials good, account active and staff | 200 | - |
+| Unknown email, or wrong password | 401 | `authentication_required` |
+| Known account, but disabled or not staff | 403 | `permission_denied` |
+| Malformed body | 422 | `request_validation_error` |
+
+The first two share one message and comparable timing, deliberately. A distinct
+response for each turns the sign-in form into a way to enumerate which staff
+addresses exist, and the unknown-account path still runs a password verification
+so it does not answer measurably faster.
+
+```json
+{
+  "token": "…opaque session token…",
+  "expires_at": "2026-01-08T00:00:00Z",
+  "user": {
+    "id": "0f8c1d2e-3a4b-5c6d-7e8f-9a0b1c2d3e4f",
+    "full_name": "Humera Staff",
+    "email": "staff@humera.example",
+    "is_staff": true
+  }
+}
+```
+
+The response also sets the `humera_staff_session` cookie: `HttpOnly`,
+`SameSite=Lax`, `Secure` in production, `Path=/`, lifetime
+`SESSION_EXPIRE_MINUTES` (7 days by default). The token is in the body as well so
+a non-browser client can use it; the browser should ignore it and rely on the
+cookie.
+
+The same 401 covers an unknown email and a wrong password.
+
+### `GET /api/v1/auth/me`
+
+Returns the same `user` object for the current session. Used by the admin UI to
+decide whether to render a session or a sign-in form. **401** without a valid
+session.
+
+### `POST /api/v1/auth/logout`
+
+Revokes the session row. Idempotent: signing out with no session is a **200**, not
+an error, so a client can always call it on the way out. The cookie is cleared
+either way.
+
+### Presenting the session
+
+Either works, and the frontend uses the cookie:
 
 ```
-/api/v1/vehicles?make=&body_type=&price_min=&price_max=   filtering (not implemented)
+Cookie: humera_staff_session=<token>
+Authorization: Bearer <token>
+```
+
+A cookie is used in the browser because it is attached automatically and cannot
+be read by JavaScript. The bearer form exists for scripts and for tests. The
+cookie is checked first, so a request carrying both uses the cookie.
+
+### 401 versus 403
+
+This distinction is load-bearing and easy to get wrong:
+
+| Situation | Status | Code |
+| --- | --- | --- |
+| No token | 401 | `authentication_required` |
+| Token unknown, malformed, expired or revoked | 401 | `authentication_required` |
+| Valid token, account is not a staff member | 403 | `permission_denied` |
+| Valid token, account is deactivated | 403 | `permission_denied` |
+
+**401 means "I do not know who you are"; 403 means "I know, and the answer is
+no."** Collapsing them would make a deactivated account indistinguishable from a
+forgotten password, and a client cannot react to "sign in again" when the
+password is not the problem.
+
+A valid session's `last_used_at` is refreshed at most once every
+`SESSION_LAST_USED_REFRESH_SECONDS` (5 minutes), so an active operator does not
+write to the database on every click.
+
+---
+
+## Staff vehicle management
+
+All routes require an active staff session. They are the only way to change
+inventory.
+
+**A withdrawn vehicle is archived, not deleted.** `archive` sets `archived_at`,
+which removes it from the public list and makes its public page 404, while
+keeping the row, its photographs and its edit history. `restore` reverses it
+exactly, and archiving an already-archived vehicle is a no-op that returns the
+same `archived_at` rather than a new one - so a double-click cannot rewrite the
+moment of withdrawal. An archived vehicle stays editable, which is the point: a
+sold car that comes back needs its price corrected, not to be re-entered.
+
+### `GET /api/v1/admin/vehicles`
+
+Like the public list, plus staff-only fields. **Archived vehicles are always
+included** - this is the working view, and filtering them out server-side would
+mean an editor could not find the car they are trying to restore.
+
+| Query | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `page` | integer ≥ 1 | `1` | 1-based |
+| `page_size` | integer 1–100 | `24` | Maximum 100 |
+
+Returns `Page[VehicleAdminResponse]`, which adds `archived_at`, `created_at` and
+`updated_at` to the public shape. A client distinguishes published from withdrawn
+by `archived_at` being `null`.
+
+Filtering - by make, price, status - is **not implemented**; see the end of this
+document.
+
+```bash
+curl -b cookies.txt "http://localhost:8000/api/v1/admin/vehicles?page=1"
+```
+
+### `GET /api/v1/admin/vehicles/-/summary`
+
+Dashboard counters. Every number is a real `COUNT`; there are no trends or
+percentages, because those would need history this schema does not have and an
+invented trend line is a fabricated claim about the business.
+
+Declared *before* `/{vehicle_id}` on purpose, so the literal path is not captured
+as a UUID and rejected as malformed. The `/-/` prefix is a second guard: no UUID
+can begin with `-`.
+
+```json
+{
+  "total_published": 12,
+  "archived": 3,
+  "by_availability": { "available": 9, "reserved": 2, "sold": 1 },
+  "image_count": 27
+}
+```
+
+`total_published` counts vehicles a visitor can actually see. Deriving it from the
+total row count would quietly disagree with the public list the moment anything
+is archived.
+
+### `GET /api/v1/admin/vehicles/{vehicle_id}`
+
+One vehicle, by UUID, including archived ones. This is the only way to reach an
+archived vehicle, by design.
+
+### `POST /api/v1/admin/vehicles`
+
+**201** with the created vehicle. Requires `slug`, `make`, `model`, `year` and
+`status`; `currency` defaults to `"USD"` and everything else is optional.
+
+`brand`/`availability` are accepted as aliases for `make`/`status` on input, and
+`make`/`status` are what come back. Sending both spellings of the same field is a
+**422** rather than a silent pick.
+
+A duplicate `slug` is a **409** `conflict`. A slug collision is checked in the
+service *and* is backed by a unique constraint, because a check alone is a race.
+
+### `PATCH /api/v1/admin/vehicles/{vehicle_id}`
+
+Partial update. Only the fields present in the body are touched; omitting a field
+leaves it alone, and `null` is a real instruction to clear it. This is why `PATCH`
+and not `PUT` - a `PUT` here would silently wipe every omitted field.
+
+`slug` is editable. Changing it changes the public URL, so the old one 404s
+immediately. There is no redirect, because a redirect table for slugs is
+infrastructure that outlives the reason for it; keep slugs stable.
+
+### `POST /api/v1/admin/vehicles/{vehicle_id}/archive`
+
+Sets `archived_at`. Idempotent.
+
+```json
+{ "id": "...", "slug": "...", "status": "sold", "archived_at": "2026-01-01T00:00:00Z" }
+```
+
+`archived_at` is always serialised with an explicit UTC offset. SQLite returns
+naive datetimes and PostgreSQL returns `TIMESTAMPTZ`, so without normalising at
+the schema the same field arrives as `...Z` on one request and as a bare `...` on
+the next - and a client cannot tell a missing offset from local time.
+
+### `POST /api/v1/admin/vehicles/{vehicle_id}/restore`
+
+Clears `archived_at`. Idempotent, same response shape.
+
+```bash
+curl -X POST -b cookies.txt \
+  http://localhost:8000/api/v1/admin/vehicles/$ID/archive
+```
+
+---
+
+## Staff image management
+
+Photographs are stored on the filesystem and their metadata in
+`vehicle_images`. Every route requires a staff session. Position `0` is the
+primary photograph.
+
+### `POST /api/v1/admin/vehicles/{vehicle_id}/images`
+
+`multipart/form-data` with repeated `files` parts and one `alts` value per file,
+in the same order.
+
+```bash
+curl -X POST -b cookies.txt \
+  -F "files=@front.jpg" -F "files=@rear.jpg" \
+  -F "alts=Front three-quarter view" -F "alts=Rear view" \
+  http://localhost:8000/api/v1/admin/vehicles/$ID/images
+```
+
+**201** with the full gallery and a count of what this request added:
+
+```json
+{
+  "images": [
+    {
+      "id": "0f8c1d2e-3a4b-5c6d-7e8f-9a0b1c2d3e4f",
+      "src": "/media/2026/01/9f8c1d2e3a4b5c6d7e8f9a0b1c2d3e4f.jpg",
+      "alt": "Front three-quarter view",
+      "width": 1600,
+      "height": 1200,
+      "position": 0
+    }
+  ],
+  "created": 1
+}
+```
+
+There is no `is_primary` flag. Position `0` *is* the primary image, and storing
+that as a second source of truth would be one more thing that can disagree with
+the other.
+
+`created` is this request's count, not the gallery size. Uploading to a vehicle
+that already has photographs returns the whole gallery *and* the number of files
+just accepted, and the two are different numbers.
+
+Alt text is required for every file. It is not derived from the vehicle name,
+because a description invented from metadata is a description that is wrong.
+
+**The batch is all or nothing.** One bad file rejects the whole request with
+**422**, storing none of them and leaving nothing on disk. A partial upload would
+leave the caller believing it failed while the gallery had silently changed.
+
+| Rejected | Why |
+| --- | --- |
+| Bytes that are not JPEG, PNG or WebP | Decoded before any byte is written |
+| A GIF/PHP polyglot, or any other format | Only three formats are allowed, whatever the filename says |
+| Under `IMAGE_MIN_WIDTH` × `IMAGE_MIN_HEIGHT` | A tracking pixel is not a car photograph |
+| Over `IMAGE_MAX_BYTES`, or the pixel ceiling | Bounded in both directions, so a decompression bomb cannot exhaust memory |
+| Blank or missing `alt` | Required |
+| More than `IMAGE_MAX_FILES_PER_REQUEST` files | Per-request cap |
+| More than `IMAGE_MAX_PER_VEHICLE` in total | Per-vehicle cap, enforced against the database |
+
+Files are re-encoded to strip EXIF, so a photograph cannot carry a GPS fix or a
+device serial number to the public site.
+
+The storage key is generated by the server - a random 128-bit hex digest, the
+extension taken from the format *Pillow detected*, sharded by month
+(`2026/01/9f8c….jpg`). The uploaded filename is never part of it: a
+caller-supplied name is attacker-controlled, and can carry a traversal sequence, a
+second extension (`car.jpg.php`), or 4 KB of text that ends up in a URL. A PNG that
+arrives named `.jpg` is stored as a PNG.
+
+### `PUT /api/v1/admin/vehicles/{vehicle_id}/images/order`
+
+Sets the complete display order. The body is the **whole** list of image ids:
+
+```json
+{ "image_ids": ["...", "...", "..."] }
+```
+
+A partial list, a repeated id, or an id belonging to another vehicle is a
+**422**. A partial order is ambiguous the moment two people reorder the same
+gallery at once - the second request would be resolving a move against an order
+the first had already replaced.
+
+### `POST /api/v1/admin/vehicles/{vehicle_id}/images/{image_id}/primary`
+
+Promotes one image to position `0` and shifts the rest down, keeping their
+relative order. A no-op when the image is already primary.
+
+### `DELETE /api/v1/admin/vehicles/{vehicle_id}/images/{image_id}`
+
+Removes one image and renumbers the rest contiguously from `0`, so deleting the
+lead promotes the next one instead of leaving a hole where the hero should be.
+Returns the remaining gallery.
+
+**200** with `{"deleted": "<id>", "images": [...]}`. Scoped to the vehicle: an id
+from another vehicle is a **404**, not a delete.
+
+The row is committed *before* the file is unlinked. That ordering is the whole
+point - the other way round, a commit that failed would roll the row back and
+leave a live listing pointing at a file that is gone, which is a broken image
+rather than a merely untidy one. The reverse failure is an orphaned file with no
+row pointing at it, which is invisible to visitors and can be swept up later.
+
+A vehicle may end up with no images. That is a legitimate state - a car awaiting
+photography - and the public page renders a placeholder rather than substituting
+a picture of a car that is not theirs.
+
+---
+
+## Operating the staff accounts
+
+Accounts are created and controlled from the server shell, never over HTTP. A
+registration endpoint would be a permanent, unauthenticated way to mint staff
+credentials.
+
+```bash
+python -m app.cli create_staff --email you@humera.example --full-name "Your Name"
+python -m app.cli list_staff
+python -m app.cli set_active --email you@humera.example --no-active
+python -m app.cli revoke_sessions --email you@humera.example
+python -m app.cli purge_expired_sessions
+```
+
+`create_staff` prompts for the password without echoing it. Passwords are hashed
+with Argon2id at configurable cost, and re-hashed on next sign-in when the cost
+parameters change.
+
+---
+
+## Not implemented
+
+The following do not exist, and no frontend code depends on them:
+
+```
+/api/v1/vehicles?make=&body_type=&price_min=&price_max=   filtering
 /api/v1/vehicles/{slug}/inquiries   enquiry submission
 /api/v1/vehicles/compare            side-by-side comparison
 /api/v1/saved-vehicles              customer shortlist        (authenticated)
 /api/v1/export-requests             export enquiry
 /api/v1/quotes                      quotations                (staff)
-/api/v1/auth/*                      registration, sign-in, sign-out, refresh
-/api/v1/admin/*                     inventory, leads, CRM     (staff)
 ```
 
-Two entries deserve a note, because they are the obvious next steps and both
-imply a step this one deliberately did not take:
-
-- **Filtering** is a query-string contract. It needs an agreed set of filters
-  and their interaction (does `status=available` combine with `body_type`?) before
-  it is worth pinning. The list endpoint returns all statuses, unfiltered.
-- **`/api/v1/admin/*`** is where vehicle writes will eventually live. It implies
-  authentication and authorisation, neither of which exists. Adding a write
-  endpoint to the public API now would mean publishing stock through an
-  unauthenticated route.
+**Filtering** is a query-string contract. It needs an agreed set of filters and
+their interaction - does `status=available` combine with `body_type`, or replace
+it? - before it is worth pinning. The list endpoint returns everything,
+unfiltered.
 
 Frontend code reaches the API only through typed wrappers in
 `frontend/lib/api/`. Adding a new resource means adding a module there, not

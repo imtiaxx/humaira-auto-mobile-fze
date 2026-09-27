@@ -120,8 +120,17 @@ def create_token(
 ) -> str:
     """Create a signed JWT.
 
-    Reserved for the authentication feature. Not reachable from any endpoint in
-    this step; there is deliberately no login route yet.
+    **Not used by the API.** Staff sessions are opaque random tokens whose
+    digest is stored in `staff_sessions`, so a session can be revoked
+    immediately - which is the entire point of having an admin surface. A JWT
+    cannot be revoked before it expires, and this application's staff accounts
+    are exactly the accounts that need revoking on sight.
+
+    Nothing in `app/` calls this. It is kept because the signing and verification
+    logic is tested and correct, and because a self-contained token primitive is
+    occasionally the right tool for a *different* service. It is not a second
+    authentication path to reach for: wiring a login route to it would give out
+    tokens that survive `revoke_sessions` and `set_active`, quietly undoing both.
     """
     secret = settings.secret_key.get_secret_value()
     if not secret:

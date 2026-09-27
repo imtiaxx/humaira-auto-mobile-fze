@@ -79,15 +79,20 @@ async def list_vehicles(
 
 
 async def get_vehicle_by_slug(session: AsyncSession, slug: str) -> VehicleResponse:
-    """One vehicle, or `NotFoundError`.
+    """One published vehicle, or `NotFoundError`.
 
-    Raising the shared `NotFoundError` rather than returning `None` keeps the
+    Raises the shared `NotFoundError` rather than returning `None` to keep the
     404 body identical to every other missing resource in this API - same
     envelope, same `not_found` code, same request id - so the frontend's
     `ApiError` path needs no special case for vehicles.
+
+    Reads through `get_live_by_slug`, so an archived vehicle answers `404` here
+    rather than being described to a customer. The staff service uses the
+    unfiltered lookup instead, so staff can still open an archived vehicle to
+    restore it.
     """
     repository = VehicleRepository(session)
-    vehicle = await repository.get_by_slug(slug)
+    vehicle = await repository.get_live_by_slug(slug)
 
     if vehicle is None:
         raise NotFoundError("No vehicle matches that identifier.")

@@ -12,12 +12,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
+from app.services.image_validation import configure_pillow_limits
 
 logger = get_logger(__name__)
 
@@ -25,18 +27,30 @@ DESCRIPTION = """
 Backend API for Humera Automobile, a Dubai-based vehicle sales and export
 business.
 
-### Implemented
+### Public, read-only
 * `GET /api/v1/health` and `GET /api/v1/health/ready` - liveness and readiness.
 * `GET /api/v1/vehicles` - public vehicle inventory, paginated, newest first.
 * `GET /api/v1/vehicles/{slug}` - one vehicle by its public slug.
 
-The vehicle endpoints are **read-only**. Any other verb returns 405: publishing
-or editing a vehicle belongs to a staff-only admin API, which does not exist
-yet, so there is currently no way to change inventory over HTTP.
+The vehicle endpoints are **read-only**. Any other verb on that path returns
+405: the public resource describes what is for sale and nothing more.
+
+### Staff only
+* `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`.
+* `/api/v1/admin/vehicles` - add, edit, archive and restore vehicles.
+* `/api/v1/admin/vehicles/{id}/images` - upload, reorder and remove photographs.
+
+Every one of these requires a session belonging to an active staff account.
+There is no registration: accounts are created by an operator with
+`python -m app.cli create_staff`, never over HTTP.
+
+A withdrawn vehicle is archived, not deleted. It leaves the public list and its
+public page 404s, but the record and its photographs are kept and stay editable
+in the admin area.
 
 ### Not yet available
-Enquiries, export workflows, filtering and authentication are **not** available
-yet and are planned for later steps.
+Enquiries, export workflows and inventory filtering are **not** available yet and
+are planned for later steps.
 
 The inventory tables exist but are empty - the business has not published stock
 yet, so an empty list is a correct response, not a fault. See `docs/api.md`.
@@ -51,6 +65,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     satisfy its configuration must not begin serving traffic.
     """
     configure_logging()
+    configure_pillow_limits()
 
     problems = settings.assert_production_ready()
     if problems:
@@ -108,6 +123,7 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(application)
     application.include_router(api_router, prefix=settings.api_v1_prefix)
+    _mount_local_media(application)
 
     @application.get("/", include_in_schema=False)
     async def root() -> dict[str, str]:
@@ -120,6 +136,44 @@ def create_app() -> FastAPI:
         }
 
     return application
+
+
+def _mount_local_media(application: FastAPI) -> None:
+    """Serve vehicle photographs when the local storage backend is in use.
+
+    Mounted at `/media`, the same prefix `image_public_base_url` defaults to, so
+    an upload is immediately fetchable at the URL stored in its `src` column with
+    no extra configuration in development.
+
+    Only mounted for the local backend. When `image_storage_backend` is something
+    else, images live in object storage behind a CDN and this mount would be a
+    second, wrong source of truth - and the local directory would not even exist.
+
+    `check_dir=False` because the directory is created on first upload, not at
+    import time; creating it during app construction would make a read-only
+    container filesystem fatal at start-up rather than at first write.
+    """
+    # Widened to `str` before comparing. `image_storage_backend` is typed
+    # `Literal["local"]`, so mypy can prove this branch is currently unreachable
+    # and would reject the `return` outright - but the moment a second backend is
+    # added to that Literal the guard becomes live, and it has to be live, because
+    # serving stale local bytes for object-storage uploads is a correctness bug
+    # rather than a cosmetic one. Reading it into a plain `str` keeps the runtime
+    # check without a `type: ignore` that would hide the moment it starts
+    # mattering.
+    backend: str = settings.image_storage_backend
+    if backend != "local":
+        return
+
+    application.mount(
+        settings.image_media_prefix,
+        StaticFiles(directory=settings.image_storage_root, check_dir=False),
+        name="media",
+    )
+    logger.info(
+        "local_media_mounted",
+        extra={"prefix": settings.image_media_prefix, "root": str(settings.image_storage_root)},
+    )
 
 
 app = create_app()

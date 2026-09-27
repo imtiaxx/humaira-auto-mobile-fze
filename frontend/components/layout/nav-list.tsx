@@ -150,7 +150,13 @@ export function NavList({
               className={cn(
                 "relative block rounded-xs font-medium transition-colors duration-[var(--duration-fast)]",
                 VARIANT_LINK[variant],
-                active ? "text-fg" : "text-fg-secondary hover:bg-sunken hover:text-fg",
+                // The current page is white with a red rule under it; everything
+                // else is the secondary colour and warms toward the accent on
+                // hover, so the red belongs to the current section rather than
+                // appearing under every pointer as it passes through the bar.
+                active
+                  ? "text-fg"
+                  : "text-fg-secondary hover:bg-sunken hover:text-fg-accent",
                 // The drawer's rows are full-width and separated by rules, so a
                 // background wash on hover would fight the divider. Everywhere
                 // else it is the hover affordance.
@@ -165,11 +171,18 @@ export function NavList({
                 Absolutely positioned rather than a border so it can sit flush
                 against the edge of a tight row without affecting layout height,
                 which would shift the bar between pages.
+
+                `--color-accent-700` rather than the lighter action accent: a
+                2px rule this small needs the brand red at full strength to read
+                as deliberate, and the light accent is reserved for filled
+                surfaces large enough to carry it. Measured against the header's
+                near-white it is 5.9:1, so it stays visible rather than becoming
+                a tint.
               */}
               {active ? (
                 <span
                   aria-hidden="true"
-                  className={cn("absolute bg-accent-500", VARIANT_INDICATOR[variant])}
+                  className={cn("absolute bg-accent-700", VARIANT_INDICATOR[variant])}
                 />
               ) : null}
             </Link>

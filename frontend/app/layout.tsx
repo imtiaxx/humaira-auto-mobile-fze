@@ -1,21 +1,49 @@
 import type { Metadata, Viewport } from "next";
 
 import { inter, sora } from "@/app/fonts";
-import { WhatsAppFloat } from "@/components/cta/whatsapp-cta";
-import { SiteFooter } from "@/components/layout/site-footer";
-import { SiteHeader } from "@/components/layout/site-header";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/config/site";
 import "./globals.css";
 
 /**
- * Fonts are loaded from files committed to this repository via
- * `next/font/local` - see `app/fonts.ts` for why. The practical consequences:
- * no third-party request at build time or at runtime, no visitor IP is leaked
- * to a font host, and the build cannot fail because a CDN is down.
+ * The document shell. Every route in this application renders inside it.
  *
- * `display: "swap"` paints fallback text immediately instead of blocking on
- * the font, and `adjustFontFallback` keeps that fallback metric-compatible so
- * the swap does not shift the layout.
+ * ---------------------------------------------------------------------------
+ * Why this file no longer renders the site header and footer
+ * ---------------------------------------------------------------------------
+ * Because it is no longer the *site* layout - it is the *document* layout, and
+ * the admin surface is not part of the site. Keeping `<SiteHeader />` and
+ * `<SiteFooter />` here would have put a marketing navigation bar, a footer of
+ * links to pages that do not exist, and a floating WhatsApp button above every
+ * page a staff member uses to edit inventory.
+ *
+ * Those three now render in `app/(marketing)/layout.tsx`, which is where they
+ * belong: the public site. The route group is named for what it contains, and it
+ * costs nothing in URLs - a group is omitted from the path, so `/inventory` is
+ * still `/inventory`.
+ *
+ * The alternative was a second root layout via multiple root layouts, which Next
+ * supports. It was rejected for two reasons, both of which show up later rather
+ * than sooner: navigating between two root layouts forces a full page reload, and
+ * each root layout has to repeat `<html>`, `<body>`, the font variables and the
+ * global stylesheet. Duplicating the document setup in two files is exactly the
+ * kind of thing that drifts - one root layout gets a font fix and the other does
+ * not, and the difference is invisible until someone visits the other area.
+ *
+ * One root layout means one `<main>`, one skip link and one place the document
+ * metadata is declared. The admin area gets its own chrome inside that `<main>`,
+ * which is the part it actually needed.
+ *
+ * ---------------------------------------------------------------------------
+ * Fonts
+ * ---------------------------------------------------------------------------
+ * Loaded from files committed to this repository via `next/font/local` - see
+ * `app/fonts.ts` for why. The practical consequences: no third-party request at
+ * build time or at runtime, no visitor IP is leaked to a font host, and the build
+ * cannot fail because a CDN is down.
+ *
+ * `display: "swap"` paints fallback text immediately instead of blocking on the
+ * font, and `adjustFontFallback` keeps that fallback metric-compatible so the swap
+ * does not shift the layout.
  *
  * `variable` exposes each family as a CSS custom property, which `globals.css`
  * maps onto the `--font-sans` / `--font-display` theme tokens.
@@ -25,8 +53,8 @@ import "./globals.css";
  * Title strategy: the root supplies an absolute default plus a template, so
  * every page renders "<page> | Humera Automobile" without repeating the brand.
  *
- * `SITE_NAME` comes from `config/site.ts` rather than being restated here, so
- * the brand name has exactly one definition in the project.
+ * `SITE_NAME` comes from `config/site.ts` rather than being restated here, so the
+ * brand name has exactly one definition in the project.
  */
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
@@ -70,11 +98,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col bg-page text-fg">
         {/*
           Skip link. First in the DOM and visually hidden until focused, so a
-          keyboard user can jump past the header's eight navigation items on
-          every page instead of tabbing through them each time. The `focus`
-          variant - not `focus-visible` - because a skip link has to appear for
-          keyboard users, who are exactly the people `focus-visible` is
-          unreliable for.
+          keyboard user can jump past the header on every page instead of tabbing
+          through it each time. The `focus` variant - not `focus-visible` -
+          because a skip link has to appear for keyboard users, who are exactly
+          the people `focus-visible` is unreliable for.
+
+          It lives here rather than in the marketing layout because the admin area
+          has its own navigation and needs the same escape from it.
         */}
         <a
           href="#main-content"
@@ -83,29 +113,24 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to main content
         </a>
 
-        <SiteHeader />
-
         {/*
-          The single `<main>` for the site. It lives here rather than in each page
-          so a page can never ship a second one, and so `flex-1` pushes the footer
-          to the bottom of the viewport on any page shorter than the window.
+          The single `<main>` for the application. It lives here rather than in
+          each page so a page can never ship a second one, and so `flex-1` pushes
+          the footer to the bottom of the viewport on any page shorter than the
+          window.
 
-          `id` is the skip link's target. `tabIndex={-1}` is required: without
-          it, following the skip link moves the viewport but not keyboard focus,
-          so the next Tab continues from the top of the document and the skip
-          appears to have done nothing.
+          `tabIndex={-1}` is required: without it, following the skip link moves
+          the viewport but not keyboard focus, so the next Tab continues from the
+          top of the document and the skip appears to have done nothing.
+
+          The admin area renders its own header inside this `<main>` rather than
+          beside it, which is the one compromise of keeping a single document
+          layout. It is a good trade: the staff chrome is a bar at the top of the
+          content, not site furniture that has to align with the footer.
         */}
         <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
           {children}
         </main>
-
-        <SiteFooter />
-
-        {/*
-          Floating contact action. Renders nothing until a WhatsApp number is
-          configured, so it costs no DOM today.
-        */}
-        <WhatsAppFloat />
       </body>
     </html>
   );

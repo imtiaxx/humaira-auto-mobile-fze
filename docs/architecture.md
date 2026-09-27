@@ -386,18 +386,27 @@ version modules; `app/main.py` mounts that aggregate once. A breaking change
 means adding `v2/` and one `include_router` call - v1 clients are untouched.
 
 **What exists today:** `GET /api/v1/health`, `GET /api/v1/health/ready`,
-`GET /api/v1/vehicles` and `GET /api/v1/vehicles/{slug}`, plus a root discovery
-document. See `docs/api.md`.
+`GET /api/v1/vehicles` and `GET /api/v1/vehicles/{slug}`; a root discovery
+document; `/api/v1/auth/{login,logout,me}`; and `/api/v1/admin/vehicles` with its
+`/-/summary`, `/{id}`, `/archive`, `/restore` and `/images` routes. See
+`docs/api.md`.
 
-The vehicle routes are **read-only**. They are the only public data endpoints,
-and they are `GET`-only by construction: any other verb returns 405. There is no
-write path into `vehicles` at all, which is what keeps "publish a vehicle" out of
-reach of an unauthenticated caller until `/api/v1/admin/*` and staff permissions
-exist.
+The public vehicle routes are **read-only**, `GET`-only by construction: any other
+verb returns 405. Every write lives on `/api/v1/admin/*` behind
+`require_staff`, so there is no path to publishing a vehicle that an
+unauthenticated caller can reach - and, more importantly, no path where one
+accidentally appears, because the public and staff routers are separate modules
+under separate prefixes. A privileged write cannot be one decorator away from a
+public read.
 
-**Planned resource layout** (not implemented): `/vehicles?` filtering,
-`/vehicles/{slug}/inquiries`, `/vehicles/compare`, `/saved-vehicles`,
-`/export-requests`, `/quotes`, `/auth/*`, `/admin/*`.
+`/-/summary` is declared before `/{vehicle_id}` in `admin_vehicles.py`. FastAPI
+matches in declaration order, so a `/{uuid}` route declared first would capture the
+literal segment and reject it as an invalid UUID - the dashboard would look broken
+for a reason with nothing to do with the dashboard. The `/-/` prefix is a second
+guard: no UUID can begin with `-`.
+
+**Not implemented:** `/vehicles?` filtering, `/vehicles/{slug}/inquiries`,
+`/vehicles/compare`, `/saved-vehicles`, `/export-requests`, `/quotes`.
 
 Two endpoint families are deliberately distinct:
 
@@ -436,13 +445,35 @@ Foundation decisions already locked in:
 
 ### Entities: current and planned
 
-**Implemented (2):** `User` - identity only: email, phone, full name, Argon2id
+**Implemented (3):** `User` - identity only: email, phone, full name, Argon2id
 `password_hash`, `is_active`, `is_staff`, verification and last-login stamps. It
-exists so the full model -> migration -> live PostgreSQL chain is proven before
-business logic depends on it. It carries no authorisation logic.
+carries no authorisation logic of its own; roles are checked in the service layer
+against the value loaded per request.
 
-**Implemented (2):** `Vehicle` and `VehicleImage` - the public inventory read
+**Implemented (2):** `Vehicle` and `VehicleImage` - the inventory read and write
 model described below. Both are live and both contain zero rows.
+
+**Implemented (1):** `StaffSession` - `user_id`, the SHA-256 `token_hash`
+(uniquely indexed), `expires_at` and `last_used_at`, plus the `created_at` /
+`updated_at` stamps from the shared mixin. The plaintext token is never stored, so
+a database disclosure does not hand an attacker usable credentials. Sessions are
+deleted on sign-out and on expiry rather than flagged, which keeps the table
+honest: a row is a live session, full stop.
+
+`expires_at` is enforced on every request rather than by a sweeper, so an expired
+session is refused the moment it lapses.
+`python -m app.cli purge_expired_sessions` is an operational convenience, not the
+mechanism.
+
+`StaffSession` is what makes revocation immediate. Deleting the row is the whole
+mechanism, and it is why sessions are stored rather than self-contained.
+**The `vehicle_images` position rewrite.** Reordering a gallery permutes values
+that a `UNIQUE (vehicle_id, position)` constraint forbids permuting directly, so
+rows are written in two phases: first to a range no live row occupies, then to
+their real positions. That parking range is *above* `IMAGE_MAX_PER_VEHICLE` and
+positive, because `CHECK (position >= 0)` forbids negatives - parking below zero
+satisfies the unique constraint and fails the check constraint, which is a
+reorder that passes on SQLite and breaks on PostgreSQL.
 
 **Planned, deliberately not yet modelled:** `Customer`, `VehicleFeature`,
 `VehicleInquiry`, `SavedVehicle`, `VehicleComparison`, `ExportRequest`, `Quote`,
@@ -521,31 +552,55 @@ can be corrected without a deployment.
 
 ---
 
-## 6. Authentication direction (prepared, not implemented)
+## 6. Authentication and staff access (built)
 
-**No login endpoint, no registration form, no session cookie issuance and no
-authentication UI exist yet.** What is in place:
+**Staff sign in with an opaque server-side session, not a JWT.** The token is 48
+bytes from `secrets.token_urlsafe`, and only its SHA-256 digest is stored in
+`staff_sessions`. It is issued once, in an `HttpOnly`, `Secure` (in production),
+`SameSite=Lax` cookie; the body also carries it for non-browser clients, which
+may send it as `Authorization: Bearer`. The cookie is checked first, so a request
+carrying both uses the cookie.
 
-- Argon2id password hashing with centrally configured cost parameters
-  (`app/core/security.py`). Plaintext passwords are never stored or logged.
-- Transparent hash upgrade: when cost parameters are raised, a stronger digest
-  is returned on the next successful verification instead of invalidating
-  existing passwords.
-- Random opaque session identifiers via `secrets.token_urlsafe(48)`.
-- SHA-256 token digests for at-rest storage, so a database disclosure does not
-  hand an attacker usable credentials.
-- Short-lived signed JWTs with `sub`, `type`, `iat`, `nbf`, `exp` and `jti`
-  claims, HS256, with separate access and refresh lifetimes.
+The deciding factor was revocation. A staff account is the account that sometimes
+has to be cut off *now* - a stolen laptop, a leaver, a compromised session. A
+self-contained JWT cannot be withdrawn before it expires. Deleting the row can:
 
-None of this is reachable from any endpoint. It is a tested foundation, not a
-feature.
+```bash
+python -m app.cli set_active --email leaked@example.com --no-active
+python -m app.cli revoke_sessions --email leaked@example.com
+```
 
-**Planned direction:** a server-side session stored in the database with the
-opaque identifier in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie, plus
-`Authorization: Bearer` access tokens for any non-browser client. The cookie
-approach is the default because it is resistant to token exfiltration via XSS;
-JWTs exist for machine-to-machine and mobile cases. Browsing public inventory
-will not require an account; saved vehicles and request tracking will.
+Both take effect on the very next request.
+
+**There is no registration, and there will not be one over HTTP.** Accounts are
+created by an operator with `python -m app.cli create_staff`, which prompts for
+the password without echoing it. A registration endpoint would be a permanent,
+unauthenticated way to mint staff credentials.
+
+**401 and 403 mean different things and are not collapsed.** 401 is "I do not know
+who you are" - no token, or one that is unknown, malformed, expired or revoked.
+403 is "I know, and the answer is no" - a valid session belonging to a
+deactivated or non-staff account. Collapsing them would make a deactivated account
+indistinguishable from a forgotten password, and a client cannot respond to "sign
+in again" when the password is not the problem.
+
+**Unknown email and wrong password are indistinguishable**, in message and in
+timing. The unknown-account path still runs a password verification so it does not
+answer measurably faster, and the sign-in form cannot be used to enumerate which
+addresses are staff.
+
+**A JWT implementation exists and is deliberately unused.** `create_token` and
+`decode_token` in `app/core/security.py` are tested and reachable from nothing.
+Wiring a login route to them would issue tokens that survive `revoke_sessions` and
+`set_active`, quietly undoing both. The docstring on `create_token` says so.
+
+`last_used_at` is refreshed at most once every `SESSION_LAST_USED_REFRESH_SECONDS`
+(5 minutes), so an operator working normally does not write to the database on every
+click.
+
+Passwords are Argon2id at centrally configured cost, and a hash produced under
+weaker parameters is transparently upgraded on the next successful verification
+rather than invalidating the password.
 
 ---
 
@@ -575,29 +630,97 @@ during loading to prevent shift, and status conveyed by text as well as colour.
 
 ---
 
-## 8. What deliberately does not exist yet
+## 8. Staff vehicle and image management (built)
 
-No vehicle **search or filtering** - the list endpoint returns everything,
-newest first, unfiltered by make, body type, price or status. No vehicle
-comparison, enquiry, WhatsApp, phone or export forms. No authentication screens
-and no staff permissions. No admin dashboard, and therefore **no way to create,
-edit or delete a vehicle**: the tables are live but read-only over HTTP. No seed
-data, testimonials, reviews or statistics. No deployment configuration, domain,
-DNS or CI/CD. No payment integration. No AI features.
+**A withdrawn vehicle is archived, not deleted.** `archive` stamps `archived_at`,
+which removes the vehicle from the public list and makes its public page 404, while
+the row, its photographs and its edit history all survive. `restore` reverses it
+exactly.
 
-**Zero vehicles is the current, correct state.** `vehicles` and `vehicle_images`
-exist and are empty, and the frontend renders a real empty state from that. What
-is missing is not the data model - it is the admin write path that the business
-will use to publish stock, and a customer-facing way to reach it.
+This is the decision most likely to look like an omission, so the reasoning is
+worth stating. A dealership's inventory is not a scratchpad. A sold car comes back,
+a listing was published with the wrong price, a vehicle is withdrawn for a week
+while a customer decides. Deletion would mean re-entering the record, re-uploading
+the photographs, and losing the fact that it was ever listed. It would also make an
+ordinary mistake - a wrong slug, say - irreversible, on data that took real effort
+to gather.
 
-Two consequences of the read-only API are worth naming, because they are the
-ones most likely to be mistaken for bugs:
+Archiving is also the *safer* destructive operation, because it is reversible.
+There is no hard delete anywhere in the inventory API, by design.
 
-- The inventory page is empty **and will stay empty** until an admin route exists.
-  Nothing is wrong with it.
-- A vehicle that exists in the database is reachable at
-  `/inventory/{slug}`, and one that does not is a 404. With no rows, every slug
-  is a 404, which is the truthful answer.
+An archived vehicle stays editable, which is the point: correcting the price of a
+car that comes back should not require creating a second record. Archiving twice
+returns the *original* `archived_at` rather than a new one, so a double-click
+cannot rewrite the moment of withdrawal. `restore` is idempotent for the same
+reason.
+
+**Photographs live on the filesystem; their metadata lives in PostgreSQL.**
+`vehicle_images` holds position, dimensions, alt text and the storage key. Bytes
+are not in the database, because a listing page needs eight of them and the
+database should not grow by tens of megabytes per car.
+
+The rules that are load-bearing:
+
+- **The uploaded filename is never part of the storage key.** It is
+  attacker-controlled and can carry a traversal sequence, a second extension
+  (`car.jpg.php`) or kilobytes of text destined for a URL. Keys are a random
+  128-bit hex digest, with the extension taken from the format Pillow *detected*
+  and the directory sharded by month.
+- **The bytes decide the format, not the filename or the declared content type.**
+  Everything is decoded before any byte is written, and only JPEG, PNG and WebP
+  are accepted. A GIF/PHP polyglot is a valid GIF to a decoder and a script to a
+  misconfigured server; refusing every format outside the allowed three closes that
+  at the door.
+- **A batch is all or nothing.** One bad file rejects the whole request, storing
+  none of them. A partial upload would leave the caller believing it had failed
+  while the gallery had silently changed, and would leave orphaned files no row
+  points at.
+- **Alt text is required and is never invented.** Deriving a description from the
+  vehicle name produces a description that is confidently wrong.
+- **EXIF is stripped by re-encoding**, so a photograph cannot carry a GPS fix or a
+  device serial number onto the public site.
+- **Deleting an image commits the row before unlinking the file.** The other order
+  looks equivalent and is not: a commit that fails would roll the row back and
+  leave a live listing pointing at a file that is gone - a broken image. The
+  reverse failure is an orphaned file with no row pointing at it, which is
+  invisible to visitors and can be swept up later. `delete_image` therefore does
+  not touch the filesystem at all; it returns the key for the caller to unlink
+  after committing.
+- **Position 0 is the primary photograph**, and it is the only representation of
+  that fact. There is no `is_primary` column, because two sources of truth for one
+  attribute is two things that can disagree.
+- **Reorder takes the whole list.** A partial order is ambiguous the moment two
+  people reorder the same gallery concurrently.
+
+A vehicle may end up with no images. That is a legitimate state - a car awaiting
+photography - and the public page renders a placeholder rather than substituting a
+picture of a car that is not theirs.
+
+---
+
+## 9. What deliberately does not exist yet
+
+No vehicle **search or filtering** - the public list returns everything, newest
+first, unfiltered by make, body type, price or status. The staff list does the
+same, and always includes archived vehicles so an editor can find the car they are
+trying to restore. No vehicle comparison, enquiry, WhatsApp, phone or export forms.
+No saved vehicles or shortlist, and therefore **no customer accounts** - staff
+authentication exists, customer authentication does not. No quotations, CRM or
+lead management. No seed data, testimonials, reviews or statistics. No deployment
+configuration, domain, DNS or CI/CD. No payment integration. No AI features.
+
+**Zero vehicles is still the correct state.** `vehicles` and `vehicle_images` exist
+and are empty. The write path now exists, so the next step is data, not code: an
+operator creates a staff account and publishes the first car.
+
+Two consequences worth naming, because they are the ones most likely to be
+mistaken for bugs:
+
+- The inventory page is empty until someone publishes stock. Nothing is wrong
+  with it.
+- A vehicle that exists in the database is reachable at `/inventory/{slug}`, and
+  one that does not is a 404. With no rows, every slug is a 404, which is the
+  truthful answer.
 
 These are later steps. The recommendation is that they are added in the order
 listed in the README, so that each layer is verified before the next depends on

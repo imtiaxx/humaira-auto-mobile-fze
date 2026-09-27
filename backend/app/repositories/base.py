@@ -7,7 +7,7 @@ behaviour to encapsulate.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any, TypeVar
 
 from sqlalchemy import Select, func, select
@@ -51,4 +51,37 @@ class BaseRepository[ModelT: Base]:
         return entity
 
     async def flush(self) -> None:
+        """Send pending changes so constraint violations surface immediately.
+
+        A `flush` is not a `commit`: it makes the database reject bad data now
+        rather than after the service has already reported success, while
+        leaving the enclosing transaction open for the handler to finish.
+        """
         await self._session.flush()
+
+    async def update(self, entity: ModelT, values: Mapping[str, Any]) -> ModelT:
+        """Apply a mapping of column values to a loaded entity and flush it.
+
+        Takes a `Mapping` rather than a `dict` so a `TypedDict` of writable
+        columns can be passed directly, which is what makes the write
+        allow-lists type-checkable instead of merely conventional.
+        """
+        for column, value in values.items():
+            setattr(entity, column, value)
+        await self._session.flush()
+        return entity
+
+    async def delete(self, entity: ModelT) -> None:
+        """Remove an entity and flush, so the caller sees the effect at once."""
+        await self._session.delete(entity)
+        await self._session.flush()
+
+    async def get_by(self, **criteria: Any) -> ModelT | None:
+        """One row matching every criterion, or `None`."""
+        result = await self._session.scalars(select(self.model).filter_by(**criteria))
+        return result.first()
+
+    async def list_by(self, **criteria: Any) -> Sequence[ModelT]:
+        """Every row matching all criteria, in insertion order."""
+        result = await self._session.scalars(select(self.model).filter_by(**criteria))
+        return result.all()
