@@ -1,5 +1,9 @@
 import { cache } from "react";
 
+import { getVehiclePage } from "@/lib/api/vehicles";
+import { toInventoryPage } from "@/features/vehicles/lib/vehicle-schema";
+import type { PageParams } from "@/types/api";
+import type { ApiError } from "@/lib/api/errors";
 import type { Vehicle } from "@/types/vehicle";
 
 /**
@@ -31,9 +35,111 @@ import type { Vehicle } from "@/types/vehicle";
  * A seeded list of eight cars would make this page look finished and would be
  * the single most damaging thing in the repository: every price, mileage and
  * year would be a fabrication that a customer could be shown.
+ *
+ * ---------------------------------------------------------------------------
+ * How this becomes a real inventory
+ * ---------------------------------------------------------------------------
+ * Everything needed for that swap is built and tested; only the call is missing,
+ * because there is no endpoint to call. `docs/architecture.md` records `Vehicle`
+ * as deliberately unmodelled until the business agrees the schema, and inventing
+ * the call now would mean shipping a request to a route that does not exist.
+ *
+ * The swap is one line, when the endpoint lands:
+ *
+ * ```ts
+ * export async function listVehicles(): Promise<Vehicle[]> {
+ *   return (await listVehiclesFromSource()).vehicles;
+ * }
+ * ```
+ *
+ * `VehicleCard`, the grid, the inventory page and the detail page do not change.
+ * That is the property worth having, and it is why the rest of this file is
+ * shaped the way it is: the API binding lives in `lib/api/vehicles.ts`, the
+ * wire-to-domain translation lives in `lib/vehicle-schema.ts`, and this file only
+ * decides *whether* to read from a source. Three concerns, one seam, and the
+ * page layer never learns where the data came from.
  */
 export async function listVehicles(): Promise<Vehicle[]> {
   return [];
+}
+
+/** What a read from a real inventory source produced. */
+export interface VehicleSourceResult {
+  /** Records that passed validation. Empty when `ok` is `false`. */
+  vehicles: Vehicle[];
+  /** Total matching records across all pages, per the backend's envelope. */
+  total: number;
+  /** True when the source holds more vehicles than were returned. */
+  hasNextPage: boolean;
+  /** False when the source could not be read at all. */
+  ok: boolean;
+  /**
+   * Records the source returned that could not be represented as a `Vehicle`.
+   * Non-zero means the backend and this frontend disagree.
+   */
+  rejected: number;
+  /**
+   * Why the read failed, or `null` on success.
+   *
+   * Returned rather than swallowed, because "we have no stock" and "we could not
+   * reach the inventory service" are different facts and only the business can
+   * tell them apart. The customer-facing fallback below is the empty state,
+   * because that is what a visitor should see during an outage; this field is
+   * what an operator needs, and it is the one piece a future step has to wire to
+   * whatever alerting the deployment uses.
+   */
+  error: ApiError | null;
+}
+
+/**
+ * Reads vehicles from the real API, validated and normalised.
+ *
+ * ---------------------------------------------------------------------------
+ * Why a failed read degrades instead of throwing
+ * ---------------------------------------------------------------------------
+ * `apiGet` throws on every failure: a refused connection, a timeout, a 500, a
+ * body that is not JSON. Nothing catches that today because nothing calls it.
+ *
+ * The first time it is called, an unhandled rejection here would not degrade
+ * gracefully - it would replace the inventory page with the route error boundary,
+ * so a momentary backend hiccup would take a customer-facing page down and show
+ * a stack-trace-flavoured apology instead of a business that still trades.
+ *
+ * A vehicle site that shows "no vehicles are published" during an outage is
+ * wrong in a quiet, harmless way. One that shows a 500 is wrong in a way a
+ * customer sees and a search engine records. So the read is treated as
+ * best-effort: on failure it returns an empty result, the page renders its
+ * existing professional empty state, and the reason is handed back in `error` so
+ * it is not lost.
+ *
+ * Catching broadly rather than only `ApiError` is intentional for the same
+ * reason. A bug in the normaliser is just as capable of taking the page down as
+ * a bad response, and the correct customer-facing behaviour is identical.
+ */
+export async function listVehiclesFromSource(
+  params: PageParams = {},
+): Promise<VehicleSourceResult> {
+  try {
+    const page = toInventoryPage(await getVehiclePage(params));
+
+    return {
+      vehicles: page.vehicles,
+      total: page.total,
+      hasNextPage: page.hasNextPage,
+      rejected: page.rejected,
+      ok: true,
+      error: null,
+    };
+  } catch (cause) {
+    return {
+      vehicles: [],
+      total: 0,
+      hasNextPage: false,
+      rejected: 0,
+      ok: false,
+      error: cause instanceof Error ? (cause as ApiError) : null,
+    };
+  }
 }
 
 /**

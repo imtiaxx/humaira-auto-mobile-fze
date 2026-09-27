@@ -164,6 +164,94 @@ would be inventing a price. Formatting lives in
 so the two cannot disagree about what a vehicle costs. `null` renders as "Price on
 request"; `0` is never a substitute for absence.
 
+### The vehicle data seam
+
+The seam is three files, and only the first of them is a decision about *where*
+data comes from:
+
+```
+lib/api/vehicles.ts              transport: the wire contract, and the endpoint
+                                 bindings. No domain types, no validation.
+       ↓
+features/vehicles/lib/vehicle-schema.ts
+                                 boundary: wire JSON → domain `Vehicle`.
+                                 Validates, normalises, rejects.
+       ↓
+features/vehicles/lib/inventory.ts
+                                 policy: whether to read a source at all, and
+                                 what a failed read means.
+```
+
+`listVehicles()` is the single function that changes when real data arrives, and
+the swap is one line:
+
+```ts
+export async function listVehicles(): Promise<Vehicle[]> {
+  return (await listVehiclesFromSource()).vehicles;
+}
+```
+
+Nothing above that line changes. `VehicleCard`, `VehicleGrid`, the inventory page
+and the detail page keep the same props and the same behaviour, which is the
+property this layering exists to guarantee.
+
+**Why a hand-written boundary rather than a schema library.** `apiGet<T>`
+documents itself as "an assertion, not a check; validate untrusted payloads at
+the boundary when endpoints accept input" - and the assertion is the whole
+problem. A TypeScript interface is erased at runtime, so once a response comes
+over the network, `Vehicle` guarantees nothing. `vehicle-schema.ts` is where the
+guarantee is actually made, and it is hand-written to match the precedent of
+`lib/whatsapp.ts`: every rule in it has a specific reason attached that a generic
+validator could not carry.
+
+**The normalise/reject split.** A field that is present but messy is normalised
+(a slug in the wrong case, `0` as a price, a space in a trim level). A field that
+would require inventing something is rejected, and the record is dropped. The
+test is whether a correct value can be derived from what is already there. A slug
+can be lower-cased without inventing anything; an unrecognised availability
+status cannot be turned into a real one, so defaulting it to `available` is
+refused - that would tell a customer a car is for sale on the strength of a value
+the frontend did not understand.
+
+Rejected outright: no id, no usable slug, no make, no model, no plausible model
+year, a currency other than USD, an unknown availability state. Everything else
+normalises to `null`, which is how the renderers already expect absence - a
+missing specification becomes no row, not a dash and not a zero.
+
+A currency other than USD rejects the record rather than converting it. That is
+the rule that makes "USD only" enforceable at the boundary instead of merely
+documented: a figure this site cannot quote has no honest rendering here.
+
+**Failure degrades, it does not throw.** `apiGet` throws on every failure, and
+nothing catches that today because nothing calls it. The first time it is called,
+an unhandled rejection would replace the inventory page with the route error
+boundary - a momentary backend hiccup taking down a customer-facing page. So
+`listVehiclesFromSource()` catches and returns an empty result with `ok: false`
+and the `ApiError` attached: the visitor sees the existing empty state, and the
+operator still learns the reason. "We have no stock" and "we could not reach the
+inventory service" are different facts, and only the business can tell them
+apart. Wiring that error to alerting is a deployment concern; the seam now carries
+everything it needs.
+
+**Pagination is carried, not discarded.** The backend caps a page at 100 rows
+(`MAX_PAGE_SIZE`), so a real inventory will eventually exceed one page.
+`listVehiclesFromSource()` returns `total` and `hasNextPage` alongside the
+vehicles rather than collapsing to a bare array, so adding pagination to the grid
+is a UI change and not a data-layer rewrite. Until then `listVehicles()` returns
+the first page, which is correct while the inventory fits in one.
+
+**One vocabulary, wire to DOM.** The wire uses the same field names as the domain
+(`make`, not the planned entity's `brand`; `status`, not `availability`), and
+translates only what genuinely differs - `body_type` → `bodyType` by casing, and
+`mileage_km`, where the unit belongs in the name because an unqualified
+`mileage` number is a unit bug waiting to happen. A field renamed on the way
+through the seam is a field that can be renamed *wrong*, and the only symptom is
+a blank specification row nobody notices. If the database is later built with
+`brand` and `availability` columns, that fix belongs in the Pydantic schema's
+`alias` - one line, covered by the backend's own tests - rather than spread
+across a frontend mapper. **This naming is the one open question in the seam and
+should be agreed before the `Vehicle` table is frozen.**
+
 `/system-status` is a developer diagnostic, not a customer feature. It calls the
 real health endpoints and shows real values. It exists to prove the transport
 layer, environment configuration and error handling work end to end, and to make
