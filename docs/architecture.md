@@ -182,18 +182,42 @@ features/vehicles/lib/inventory.ts
                                  what a failed read means.
 ```
 
-`listVehicles()` is the single function that changes when real data arrives, and
-the swap is one line:
+`listVehicles()` is the single function that knew where vehicles came from. It was
+a documented `return []` while the backend had no vehicle endpoint, so the day
+real inventory landed the swap would be one line and no call site would move.
+That swap is now made:
 
 ```ts
 export async function listVehicles(): Promise<Vehicle[]> {
-  return (await listVehiclesFromSource()).vehicles;
+  // walks pages, via listVehiclesFromSource(), until the backend is out
 }
 ```
 
-Nothing above that line changes. `VehicleCard`, `VehicleGrid`, the inventory page
-and the detail page keep the same props and the same behaviour, which is the
-property this layering exists to guarantee.
+Nothing above that function changed. `VehicleCard`, `VehicleGrid`, the inventory
+page and the detail page keep the same props and the same behaviour, which is the
+property this layering exists to guarantee. The wire types in
+`lib/api/vehicles.ts` did not need to change either, because the backend was
+built against them.
+
+**Why `listVehicles()` walks every page instead of asking for one.** The obvious
+implementation is a single call returning the first page, and it would be wrong
+for a specific reason: `getVehicleBySlug()` looks a vehicle up by filtering that
+list. If stock exceeded one page, the detail page would 404 for every vehicle
+past the boundary - the grid listing a car and its own detail page calling it
+missing, appearing only once the business got busy enough to cause it. So the
+seam walks pages until the envelope says there are none. `getVehicleBySlug()`
+deliberately still filters the list rather than calling
+`GET /vehicles/{slug}`, because two sources for one fact is the problem this
+layering exists to prevent; the remote binding is there for the day both callers
+move to it together.
+
+**Why a failed read returns nothing rather than what arrived.** A partial list
+renders a grid that looks complete and is not, and for a dealer "that is all we
+have" is a materially different statement from "we could not reach the inventory
+service". One is silently wrong; the other shows the existing empty state, which
+is visibly a state rather than a catalogue. So any page failing discards the
+whole read. The reason is not lost - `listVehiclesFromSource()` returns it in
+`error` for operators.
 
 **Why a hand-written boundary rather than a schema library.** `apiGet<T>`
 documents itself as "an assertion, not a check; validate untrusted payloads at
@@ -361,11 +385,18 @@ Versioning is structural, not conventional. `app/api/router.py` aggregates
 version modules; `app/main.py` mounts that aggregate once. A breaking change
 means adding `v2/` and one `include_router` call - v1 clients are untouched.
 
-**What exists today:** `GET /api/v1/health` and `GET /api/v1/health/ready`, plus
-a root discovery document. See `docs/api.md`.
+**What exists today:** `GET /api/v1/health`, `GET /api/v1/health/ready`,
+`GET /api/v1/vehicles` and `GET /api/v1/vehicles/{slug}`, plus a root discovery
+document. See `docs/api.md`.
 
-**Planned resource layout** (not implemented): `/vehicles`, `/vehicles/{id}`,
-`/vehicles/compare`, `/vehicles/{id}/inquiries`, `/saved-vehicles`,
+The vehicle routes are **read-only**. They are the only public data endpoints,
+and they are `GET`-only by construction: any other verb returns 405. There is no
+write path into `vehicles` at all, which is what keeps "publish a vehicle" out of
+reach of an unauthenticated caller until `/api/v1/admin/*` and staff permissions
+exist.
+
+**Planned resource layout** (not implemented): `/vehicles?` filtering,
+`/vehicles/{slug}/inquiries`, `/vehicles/compare`, `/saved-vehicles`,
 `/export-requests`, `/quotes`, `/auth/*`, `/admin/*`.
 
 Two endpoint families are deliberately distinct:
@@ -374,6 +405,11 @@ Two endpoint families are deliberately distinct:
   pages, enquiries, export requests, sourcing requests.
 - **Admin** - staff only, under `/api/v1/admin`. Inventory management, lead/CRM
   pipeline, quotation management.
+
+Vehicle **writes** belong to the second family. That is why `vehicles` and
+`vehicle_images` are live tables with no endpoint able to populate them, and why
+the business has to publish stock through a deliberate admin flow rather than by
+anyone who can reach the API.
 
 ---
 
@@ -400,39 +436,61 @@ Foundation decisions already locked in:
 
 ### Entities: current and planned
 
-**Implemented (1):** `User` - identity only: email, phone, full name, Argon2id
+**Implemented (2):** `User` - identity only: email, phone, full name, Argon2id
 `password_hash`, `is_active`, `is_staff`, verification and last-login stamps. It
 exists so the full model -> migration -> live PostgreSQL chain is proven before
 business logic depends on it. It carries no authorisation logic.
 
-**Planned, deliberately not yet modelled:** `Customer`, `Vehicle`,
-`VehicleImage`, `VehicleFeature`, `VehicleInquiry`, `SavedVehicle`,
-`VehicleComparison`, `ExportRequest`, `Quote`, `Lead`, `Notification`,
-`AuditLog`.
+**Implemented (2):** `Vehicle` and `VehicleImage` - the public inventory read
+model described below. Both are live and both contain zero rows.
 
-These are named in `app/db/models/__init__.py` as the intended set. They are
-**not** created yet on purpose: a table, once migrated, is part of the permanent
-schema history, and these schemas should be agreed against real business
+**Planned, deliberately not yet modelled:** `Customer`, `VehicleFeature`,
+`VehicleInquiry`, `SavedVehicle`, `VehicleComparison`, `ExportRequest`, `Quote`,
+`Lead`, `Notification`, `AuditLog`.
+
+These are **not** created yet on purpose: a table, once migrated, is part of the
+permanent schema history, and these schemas should be agreed against real business
 requirements - Gulf-market vehicle specifications, export destinations, duty
 and shipping terms, lead lifecycle stages - before being frozen.
 
 **No seed data, no fake vehicles, no fake statistics.** The database is
-designed for real data and currently contains only a schema.
+designed for real data and currently contains only a schema. The vehicle tables
+being live does not change this: the business has not published stock, so they
+are empty, and the API and frontend both render that emptiness correctly.
 
-### Future inventory architecture (planned, not built)
+### Vehicle inventory architecture (built)
 
-`Vehicle` will be the aggregate root, holding specification fields
-(brand, model, variant, year, mileage, transmission, fuel, body type, colour,
-vin, price, currency, availability), `VehicleImage` as an ordered child set with
-a designated primary image, and `VehicleFeature` as a key/value specification
-set. `VehicleInquiry`, `SavedVehicle` and `VehicleComparison` reference a
-vehicle rather than copying its data, so a price change propagates everywhere
-and inventory can never drift between screens.
+`Vehicle` is the aggregate root, holding specification fields (brand, model,
+variant, year, mileage, transmission, fuel, body type, colour, vin, price,
+currency, availability, location). `VehicleImage` is an ordered child set where
+`position` 0 is the primary photograph - there is no `is_primary` flag, because a
+second source of truth for "which image is the hero" is a second thing that can
+disagree with the first.
 
-Filtering will be served by indexed columns on `Vehicle` for the high-cardinality
-fields buyers actually filter on (make, body type, fuel, transmission, price
-range, year range) with a search index over make/model text. Vehicle list
-endpoints will return the shared `Page<T>` envelope already defined in
+Two decisions are worth stating explicitly, since both differ from the entity
+list this section originally sketched:
+
+- **`features` is a JSONB column on `vehicles`, not a `VehicleFeature` table.**
+  Features are a flat key/value set that is written and read whole, never
+  filtered on, joined or aggregated. Promoting the column to a table is a
+  contained migration, and the trigger for doing it is the first filter that
+  needs to query a feature ("all automatics under 40,000").
+- **`brand` and `availability` are the column names; `make` and `status` are the
+  wire names.** The frontend domain type was written first from the rendered
+  requirements, and one vocabulary from the database to the DOM means the
+  translation table is empty. `VehicleResponse` bridges the two names with
+  `serialization_alias`, so the rename happens once, in one place, covered by
+  the backend's own tests.
+
+The same reasoning applies to `vehicles.location`, which is free text rather than
+a foreign key: it becomes a `Location` reference when stock is genuinely held at
+more than one depot, which is also when a customer would start filtering by it.
+
+Filtering is **not** implemented, and no speculative indexes were added for it.
+When filtering lands it will be served by indexed columns on `Vehicle` for the
+high-cardinality fields buyers actually filter on (make, body type, fuel,
+transmission, price range, year range), with a search index over make/model text.
+Vehicle list endpoints return the shared `Page<T>` envelope already defined in
 `app/utils/pagination.py`.
 
 ### Future CRM / lead architecture (planned, not built)
@@ -519,10 +577,27 @@ during loading to prevent shift, and status conveyed by text as well as colour.
 
 ## 8. What deliberately does not exist yet
 
-No vehicle inventory, search or filtering. No vehicle pages or comparison. No
-enquiry, WhatsApp, phone or export forms. No authentication screens. No admin
-dashboard. No seed data, testimonials, reviews or statistics. No deployment
-configuration, domain, DNS or CI/CD. No payment integration. No AI features.
+No vehicle **search or filtering** - the list endpoint returns everything,
+newest first, unfiltered by make, body type, price or status. No vehicle
+comparison, enquiry, WhatsApp, phone or export forms. No authentication screens
+and no staff permissions. No admin dashboard, and therefore **no way to create,
+edit or delete a vehicle**: the tables are live but read-only over HTTP. No seed
+data, testimonials, reviews or statistics. No deployment configuration, domain,
+DNS or CI/CD. No payment integration. No AI features.
+
+**Zero vehicles is the current, correct state.** `vehicles` and `vehicle_images`
+exist and are empty, and the frontend renders a real empty state from that. What
+is missing is not the data model - it is the admin write path that the business
+will use to publish stock, and a customer-facing way to reach it.
+
+Two consequences of the read-only API are worth naming, because they are the
+ones most likely to be mistaken for bugs:
+
+- The inventory page is empty **and will stay empty** until an admin route exists.
+  Nothing is wrong with it.
+- A vehicle that exists in the database is reachable at
+  `/inventory/{slug}`, and one that does not is a 404. With no rows, every slug
+  is a 404, which is the truthful answer.
 
 These are later steps. The recommendation is that they are added in the order
 listed in the README, so that each layer is verified before the next depends on

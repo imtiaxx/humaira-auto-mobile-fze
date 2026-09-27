@@ -2,15 +2,18 @@
  * Vehicle endpoint bindings.
  *
  * ---------------------------------------------------------------------------
- * Declared now, called later
+ * The wire contract, agreed
  * ---------------------------------------------------------------------------
  * `lib/api/health.ts` exists because Step 1 built a working endpoint. This file
- * exists for the opposite reason: the backend has no vehicle endpoint yet, and
- * `docs/architecture.md` records `Vehicle` as *deliberately* unmodelled until
- * the business agrees the schema. Writing the binding now, before the endpoint,
- * is what makes the frontend's half of that agreement reviewable while it is
- * still cheap to change - and it means the day the endpoint lands, the
- * integration is "uncomment the call", not "discover what the frontend assumed".
+ * was written before the endpoint, so that the frontend's half of the contract
+ * could be reviewed while it was still cheap to change. Step 10 built the
+ * backend, and nothing here had to move to accommodate it: the response schema,
+ * the page envelope and the two routes all match what was declared here.
+ *
+ * That is the outcome worth recording, because a binding written as a guess is
+ * usually the thing that has to change. It did not, and that is not luck - the
+ * frontend's `types/vehicle.ts` was written from the rendered requirements
+ * first, and the backend was built to satisfy that rather than the reverse.
  *
  * Nothing here imports the vehicle domain type, and nothing here validates. A
  * binding declares the *wire* contract; `features/vehicles/lib/vehicle-schema.ts`
@@ -38,16 +41,17 @@
  * Naming: the wire matches the domain, not the plan
  * ---------------------------------------------------------------------------
  * `docs/architecture.md` describes the planned entity's columns as "brand" and
- * "availability". This file uses `make` and `status` instead, matching
- * `types/vehicle.ts`, and the two are kept identical deliberately:
+ * "availability". This file uses `make` and `status`, matching
+ * `types/vehicle.ts`, and the backend was built to match *this* file rather than
+ * the plan:
  *
  * A field that is renamed on the way through the seam is a field that can be
  * renamed *wrong*, and the only symptom is a blank specification row that nobody
  * notices. One vocabulary from the database to the DOM means the translation
- * table is empty and there is nothing to get wrong. If the database is later
- * built with `brand` and `availability` column names, the fix belongs in the
- * Pydantic schema's `alias`, which is one line and covered by the backend's own
- * tests - not spread across a frontend mapper.
+ * table is empty and there is nothing to get wrong. The database columns are
+ * `brand` and `availability`, and Pydantic's `serialization_alias` turns them
+ * into `make` and `status` on the way out - one line, covered by the backend's
+ * own tests, and invisible to every renderer.
  *
  * `mileage_km` is the one place a suffix is added, and it earns it: an
  * unqualified `mileage` number is a unit bug waiting to happen, and the domain
@@ -67,12 +71,14 @@ export interface VehicleImageRecord {
 }
 
 /**
- * A vehicle as the backend would serialise it: snake_case, nullable-optional
+ * A vehicle as the backend serialises it: snake_case, nullable-optional
  * fields explicit, and no defaulting.
  *
- * Mirrors the planned `VehicleResponse` schema, which does not exist yet. When
- * it does, this interface is the place any disagreement surfaces - in review,
- * rather than as a blank row in production.
+ * This is `GET /api/v1/vehicles/{slug}` and the `items` entries of
+ * `GET /api/v1/vehicles`, as implemented in `backend/app/schemas/vehicle.py`.
+ * `brand` and `availability` are database column names; the schema's
+ * `serialization_alias` emits them as `make` and `status` so the vocabulary
+ * matches `types/vehicle.ts`.
  */
 export interface VehicleRecord {
   id: string;
@@ -119,11 +125,15 @@ export function getVehiclePage(
 /**
  * One vehicle by slug.
  *
- * Present for completeness so the future integration has an obvious choice to
- * make. The current site deliberately does **not** use it: `getVehicleBySlug()`
- * filters `listVehicles()`, because a detail page reading a different source
- * than the grid is how a vehicle ends up listed in one place and 404ing in
- * another. If this endpoint is ever adopted, both callers must move together.
+ * Available and correct, but deliberately not used by the site yet.
+ * `getVehicleBySlug()` filters `listVehicles()` instead, because a detail page
+ * reading a different source than the grid is how a vehicle ends up listed in
+ * one place and 404ing in another.
+ *
+ * This is the future migration path, and the constraint on it is that both
+ * callers move together - grid and detail, same read. Until that happens, the
+ * unused function is the honest record of an endpoint that exists but that the
+ * frontend has decided not to depend on yet.
  */
 export function getVehicleBySlugRemote(
   slug: string,

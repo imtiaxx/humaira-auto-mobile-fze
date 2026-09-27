@@ -10,57 +10,112 @@ import type { Vehicle } from "@/types/vehicle";
  * The inventory source.
  *
  * ---------------------------------------------------------------------------
- * The one function that will change when real data arrives
+ * The one function that knows where vehicles come from
  * ---------------------------------------------------------------------------
- * `listVehicles()` is the only place in the frontend that knows where vehicles
- * come from. Today it returns an empty array. When the backend exposes a real
- * inventory endpoint it becomes a `fetch` through the existing typed client
- * (`lib/api/client.ts`), and when the database schema is agreed it can be read
- * directly - but either way this is the single function that changes, and the
- * page, the grid and the card do not.
+ * `listVehicles()` is the only place in the frontend that knows vehicles are
+ * read from the API. The page, the grid and the card never learn: they call this
+ * and receive domain `Vehicle[]`, whoever produced them.
  *
- * It is `async` even though it currently awaits nothing. That is intentional:
- * the function is the seam, and making it synchronous now would mean changing
- * its call sites, and their loading behaviour, on the day the data lands.
+ * The seam was built in Step 9 as a documented `return []`, so the day real
+ * inventory existed the swap would be one line and no call site would move. That
+ * day is this one. `VehicleCard`, the grid, the inventory page and the detail
+ * page are all unchanged, which is the property worth having: the API binding
+ * lives in `lib/api/vehicles.ts`, the wire-to-domain translation lives in
+ * `lib/vehicle-schema.ts`, and this file only decides *whether* to read from a
+ * source. Three concerns, one seam.
  *
  * ---------------------------------------------------------------------------
- * Why the empty array is a feature and not a placeholder
+ * Why an empty list is still a real outcome
  * ---------------------------------------------------------------------------
  * `docs/architecture.md` is explicit - "No seed data, no fake vehicles, no fake
- * statistics." An empty list is the truthful representation of a business that
- * has confirmed its address and its trade but has not published stock to the
- * web. The page renders a real empty state from it, which is the same component
- * that will render "no results" for a filter that matched nothing later.
+ * statistics." The dealership has not published stock, so the truthful response
+ * to the list endpoint is an empty page and this site renders its real empty
+ * state. That is not a fallback for missing work; it is the correct rendering of
+ * what the database actually contains. A seeded list of eight cars would make
+ * this page look finished and would be the single most damaging thing in the
+ * repository: every price, mileage and year would be a fabrication a customer
+ * could be shown.
+ */
+
+/**
+ * Rows requested per page.
  *
- * A seeded list of eight cars would make this page look finished and would be
- * the single most damaging thing in the repository: every price, mileage and
- * year would be a fabrication that a customer could be shown.
+ * Mirrors the backend's `MAX_PAGE_SIZE`. Asking for the cap rather than the
+ * default 24 is deliberate: the grid renders every record it is given and has no
+ * pagination control, so a larger page means fewer round trips for the same
+ * result. It is a mirror, not a contract - the backend clamps whatever it is
+ * sent, so raising this past 100 would simply be ignored.
+ */
+const PAGE_SIZE = 100;
+
+/**
+ * Hard stop on pagination, so a miscounting backend cannot spin this forever.
+ *
+ * 500 pages of 100 is 50,000 vehicles, two orders of magnitude past a
+ * single-branch dealership. The loop below already terminates on `hasNextPage`;
+ * this bounds the damage if that flag is ever wrong, which is a real risk when
+ * the flag is derived from a count on another machine.
+ */
+const MAX_PAGES = 500;
+
+/**
+ * Reads the whole inventory, in domain form, from the real API.
  *
  * ---------------------------------------------------------------------------
- * How this becomes a real inventory
+ * Why this walks every page instead of asking for one
  * ---------------------------------------------------------------------------
- * Everything needed for that swap is built and tested; only the call is missing,
- * because there is no endpoint to call. `docs/architecture.md` records `Vehicle`
- * as deliberately unmodelled until the business agrees the schema, and inventing
- * the call now would mean shipping a request to a route that does not exist.
+ * The obvious implementation is a single call returning the first page, and it
+ * is wrong here for a specific reason: `getVehicleBySlug()` below looks a
+ * vehicle up by filtering this list. If the dealer has more stock than fits in
+ * one page, that lookup would 404 for every vehicle past the boundary - the grid
+ * would list a car and its own detail page would call it missing. The two would
+ * disagree, which is the single most confusing failure a vehicle site can
+ * produce, and it would only appear once the business was busy enough to cause
+ * it.
  *
- * The swap is one line, when the endpoint lands:
+ * So this walks pages until the backend says there are no more. The alternative
+ * - switching the detail page to the single-vehicle endpoint - is a deliberate
+ * non-choice for now: two sources for one fact is the problem being avoided
+ * here, and a slowness problem is a better one to have than a correctness one.
+ * If inventory ever grows large enough for this walk to matter, both callers
+ * move to the remote lookup together, as the notes in
+ * `lib/api/vehicles.ts` require.
  *
- * ```ts
- * export async function listVehicles(): Promise<Vehicle[]> {
- *   return (await listVehiclesFromSource()).vehicles;
- * }
- * ```
+ * ---------------------------------------------------------------------------
+ * Why a failed page returns nothing rather than what arrived
+ * ---------------------------------------------------------------------------
+ * A partial list is the more dangerous of the two failure outputs. Returning the
+ * first 100 of 150 vehicles renders a grid that looks complete and is not, and
+ * for a dealer "that is all we have" is a materially different statement from
+ * "we could not reach the inventory service". One is silently wrong; the other
+ * shows the existing empty state, which is visibly a state rather than a
+ * catalogue, and is the same component used for a filter that matched nothing.
  *
- * `VehicleCard`, the grid, the inventory page and the detail page do not change.
- * That is the property worth having, and it is why the rest of this file is
- * shaped the way it is: the API binding lives in `lib/api/vehicles.ts`, the
- * wire-to-domain translation lives in `lib/vehicle-schema.ts`, and this file only
- * decides *whether* to read from a source. Three concerns, one seam, and the
- * page layer never learns where the data came from.
+ * So any page failing discards the whole read and returns `[]`. The reason is
+ * not lost - `listVehiclesFromSource()` hands it back in `error` for operators;
+ * this function has no error channel because its callers cannot act on one.
  */
 export async function listVehicles(): Promise<Vehicle[]> {
-  return [];
+  const collected: Vehicle[] = [];
+
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const result = await listVehiclesFromSource({
+      page,
+      page_size: PAGE_SIZE,
+    });
+
+    if (!result.ok) {
+      return [];
+    }
+
+    collected.push(...result.vehicles);
+
+    if (!result.hasNextPage) {
+      return collected;
+    }
+  }
+
+  return collected;
 }
 
 /** What a read from a real inventory source produced. */
@@ -92,18 +147,19 @@ export interface VehicleSourceResult {
 }
 
 /**
- * Reads vehicles from the real API, validated and normalised.
+ * Reads one page of vehicles from the real API, validated and normalised.
  *
  * ---------------------------------------------------------------------------
  * Why a failed read degrades instead of throwing
  * ---------------------------------------------------------------------------
  * `apiGet` throws on every failure: a refused connection, a timeout, a 500, a
- * body that is not JSON. Nothing catches that today because nothing calls it.
+ * body that is not JSON. `listVehicles()` calls this, and the inventory page
+ * renders during a server component render where nothing above it would catch.
  *
- * The first time it is called, an unhandled rejection here would not degrade
- * gracefully - it would replace the inventory page with the route error boundary,
- * so a momentary backend hiccup would take a customer-facing page down and show
- * a stack-trace-flavoured apology instead of a business that still trades.
+ * Unhandled, that rejection would replace the inventory page with the route
+ * error boundary, so a momentary backend hiccup would take a customer-facing
+ * page down and show a stack-trace-flavoured apology instead of a business that
+ * still trades.
  *
  * A vehicle site that shows "no vehicles are published" during an outage is
  * wrong in a quiet, harmless way. One that shows a 500 is wrong in a way a
@@ -148,17 +204,26 @@ export async function listVehiclesFromSource(
  * ---------------------------------------------------------------------------
  * Built on `listVehicles()`, deliberately
  * ---------------------------------------------------------------------------
- * This calls `listVehicles()` rather than reaching for a second source. That is
- * the whole point: a single-vehicle lookup that had its own data access would be a
- * second inventory architecture, and the two would be free to disagree - the grid
- * listing a car the detail page calls missing, which is the most confusing failure
- * a vehicle site can produce.
+ * This calls `listVehicles()` rather than reaching for a second source, even
+ * though `GET /vehicles/{slug}` now exists and would answer this more directly.
+ * That is the whole point: a single-vehicle lookup that had its own data access
+ * would be a second inventory architecture, and the two would be free to
+ * disagree - the grid listing a car the detail page calls missing, which is the
+ * most confusing failure a vehicle site can produce.
+ *
+ * It costs something, and the cost is accepted knowingly: this is a linear scan
+ * of the inventory rather than an indexed lookup. That is why `listVehicles()`
+ * walks every page rather than fetching the first - otherwise this filter would
+ * silently stop finding vehicles once the dealer passed 100 stock, and the
+ * failure would only show up when the business got busier. The trade is
+ * correctness now over efficiency, and it holds until inventory is large enough
+ * that the scan is genuinely slow, at which point both this and the grid move
+ * to the remote endpoint together.
  *
  * Keeping the lookup expressed as a filter over the list also means the
- * "unknown vehicle" case needs no special handling here. With an empty inventory
- * the honest answer is `null`, the page calls `notFound()`, and that is the
- * truthful result rather than a placeholder object. When a real backend arrives
- * this becomes a keyed query and the contract at the call site does not change.
+ * "unknown vehicle" case needs no special handling here. A slug that is not in
+ * the data is a miss, the page calls `notFound()`, and that is the truthful
+ * result rather than a placeholder object.
  *
  * ---------------------------------------------------------------------------
  * Slug matching is forgiving on input and strict on stored values

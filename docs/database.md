@@ -171,21 +171,107 @@ Indexes: `pk_users` (primary key), `ix_users_email` (unique), `ix_users_phone`.
 Verified against a live PostgreSQL 17.10 instance via
 `upgrade head` -> `downgrade base` -> `upgrade head` -> `alembic check`.
 
+### `vehicles`
+
+Public inventory. One row per vehicle the business has chosen to publish. Created
+by revision `f02478f83720`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `UUID` | Primary key, v4 |
+| `slug` | `VARCHAR(200)` | Unique, indexed. Public URL identifier, lower-case and hyphenated |
+| `brand` | `VARCHAR(80)` | Not null. Serialised to the API as `make` |
+| `model` | `VARCHAR(80)` | Not null |
+| `variant` | `VARCHAR(120)` | Nullable, e.g. a trim or engine designation |
+| `year` | `SMALLINT` | Not null. `CHECK (year >= 1900)` |
+| `body_type` | `VARCHAR(40)` | Nullable |
+| `transmission` | `VARCHAR(20)` | Nullable |
+| `fuel` | `VARCHAR(20)` | Nullable |
+| `colour` | `VARCHAR(40)` | Nullable |
+| `mileage_km` | `INTEGER` | Nullable, `>= 0`. Unit is in the name deliberately |
+| `vin` | `CHAR(17)` | Nullable, unique. `CHECK` enforces 17 characters and excludes `I`, `O`, `Q` |
+| `price` | `NUMERIC(12,2)` | Nullable, `> 0`. `NULL` means "not published" |
+| `currency` | `CHAR(3)` | Not null, default `USD`. `CHECK (currency = 'USD')` |
+| `availability` | `VARCHAR(20)` | Not null, default `available`. `CHECK` in (`available`, `reserved`, `sold`). Serialised as `status` |
+| `location` | `VARCHAR(120)` | Nullable, free text. A real depot FK is deferred until a location table exists |
+| `features` | `JSONB` | Nullable flat `{label: value}` object |
+| `created_at` | `TIMESTAMPTZ` | Default `now()`, indexed |
+| `updated_at` | `TIMESTAMPTZ` | Default `now()`, auto-updated |
+
+Indexes: `pk_vehicles` (primary key), `ix_vehicles_slug` (unique), `ix_vehicles_vin`
+(unique), `ix_vehicles_created_at`.
+
+**`brand` and `availability` are renamed to `make` and `status` at the API edge.**
+The columns use the business's vocabulary; `VehicleResponse` uses the frontend's,
+and `serialization_alias` bridges the two. This is the only translation in the
+stack, and it is one line per field on the backend rather than a mapper spread
+across the frontend.
+
+### `vehicle_images`
+
+Ordered media for a vehicle. Created by revision `f02478f83720`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `UUID` | Primary key, v4 |
+| `vehicle_id` | `UUID` | → `vehicles.id`, indexed, `ON DELETE CASCADE` |
+| `position` | `SMALLINT` | Not null, `>= 0`. Unique per vehicle. **Position 0 is the primary photograph** |
+| `src` | `VARCHAR(2048)` | Not null. URL or path served to the browser |
+| `alt` | `VARCHAR(200)` | Not null, non-empty. Required: a decorative-only alt is wrong for a vehicle photograph |
+| `width` | `INTEGER` | Nullable. Intrinsic size, to prevent layout shift |
+| `height` | `INTEGER` | Nullable |
+| `created_at` | `TIMESTAMPTZ` | Default `now()` |
+| `updated_at` | `TIMESTAMPTZ` | Default `now()`, auto-updated |
+
+Indexes: `pk_vehicle_images` (primary key), `ix_vehicle_images_vehicle_id`,
+`uq_vehicle_images_vehicle_position` (unique on `vehicle_id`, `position`).
+
+**There is no `is_primary` flag.** Position `0` *is* the primary photograph.
+A second source of truth for "which image is the hero" is a second thing that can
+disagree with the first, and the frontend only needs the list in order.
+
+**Images are rows, not a `TEXT[]`.** They are ordered, uniquely positioned per
+vehicle, and each carries alt text and dimensions, so an array would be strictly
+worse.
+
+**`features` is JSONB, not a `vehicle_features` table.** This is the one
+deliberate deviation from the entity list in section 5. Features are a flat
+key/value set that is written and read whole, never filtered on, joined or
+aggregated. A child table would add a join, an ordering question and a second
+migration to solve a problem the business does not have. If a feature ever needs
+to be queried ("all automatics under 40,000"), promoting it to a table is a
+contained migration - and `docs/architecture.md` records it as the trigger.
+
+Verified against a live PostgreSQL 17.10 instance: `upgrade head`, then
+`alembic check` reporting no drift. Constraints were exercised with rolled-back
+`INSERT`s confirming that non-USD currencies, zero and negative prices, unknown
+availability, malformed VINs and duplicate slugs or VINs are all rejected by the
+database itself, not only by the application.
+
+### Zero rows, and that is correct
+
+`vehicles` and `vehicle_images` contain **no rows**. `docs/architecture.md` is
+explicit that no seed data, fake vehicles or fake statistics may exist, and the
+business has not published stock. Every example in this file and in `docs/api.md`
+is a placeholder showing shape; none of it exists in the database.
+
+An empty inventory is a valid state that the API and the frontend both render
+correctly. It is not a failure to be backfilled with sample data.
+
 ---
 
 ## 5. Planned entities (not yet created)
 
-Named here and in `app/db/models/__init__.py` so the intended model is
-unambiguous. **None of these tables exist.** They are specified here at a
-conceptual level only; the actual columns should be agreed against real
-business requirements before being frozen into migration history.
+`Vehicle` and `VehicleImage` listed here are now real - see section 4. The rest
+are specified at a conceptual level only; their columns should be agreed against
+real business requirements before being frozen into migration history.
 
 | Entity | Purpose | Key relationships |
 | --- | --- | --- |
 | `Customer` | Buyer profile, contact and destination preferences | 1-to-1 with `User` for account holders |
-| `Vehicle` | Aggregate root for a unit in stock | Owns images and features |
-| `VehicleImage` | Ordered media, one flagged primary | Many per `Vehicle` |
-| `VehicleFeature` | Key/value specification set | Many per `Vehicle` |
+| `Vehicle` | Aggregate root for a unit in stock | **Implemented.** Owns images; features are JSONB |
+| `VehicleImage` | Ordered media, position 0 is primary | **Implemented.** Many per `Vehicle` |
+| `VehicleFeature` | Key/value specification set | **Not implemented.** Currently JSONB on `vehicles`; promote when filtering is needed |
 | `VehicleInquiry` | Enquiry about a specific vehicle | → `Vehicle`, → `Lead` |
 | `SavedVehicle` | Customer's shortlist | Many per `Customer`/`User` |
 | `VehicleComparison` | Side-by-side selection | → multiple `Vehicle` |
@@ -199,13 +285,19 @@ Design notes worth settling before these are implemented:
 
 - Enquiry, comparison and export tables should **reference** a `Vehicle` rather
   than copying its fields, so a price or availability change can never go stale
-  in one place.
+  in one place. `vehicles.slug` being unique is what makes such a reference
+  stable and human-readable.
 - `Quote` rows should be versioned, not overwritten. A customer disputing a
   landed-cost figure months later is a realistic scenario in vehicle export.
 - `AuditLog` and a staff-permission model are prerequisites to designing
-  *before* the first real customer record is stored, not after.
+  *before* the first real customer record is stored, not after. Note that the
+  vehicle tables are already live and have no write path, so there is currently
+  nothing to audit.
 - Destination-specific duty and shipping data will be configuration referenced
   by the quote calculation, never hard-coded in a service.
+- `vehicles.location` is free text for now. It becomes a FK to a `Location` table
+  when stock is actually held at more than one depot, which is also when a
+  customer would start filtering by it.
 
 ---
 

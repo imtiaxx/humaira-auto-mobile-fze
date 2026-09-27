@@ -25,10 +25,21 @@ DESCRIPTION = """
 Backend API for Humera Automobile, a Dubai-based vehicle sales and export
 business.
 
-### Current status (Step 1 - foundation)
-Only the health endpoints are implemented. Vehicle inventory, enquiries, export
-workflows and authentication are **not** available yet and are planned for
-later steps.
+### Implemented
+* `GET /api/v1/health` and `GET /api/v1/health/ready` - liveness and readiness.
+* `GET /api/v1/vehicles` - public vehicle inventory, paginated, newest first.
+* `GET /api/v1/vehicles/{slug}` - one vehicle by its public slug.
+
+The vehicle endpoints are **read-only**. Any other verb returns 405: publishing
+or editing a vehicle belongs to a staff-only admin API, which does not exist
+yet, so there is currently no way to change inventory over HTTP.
+
+### Not yet available
+Enquiries, export workflows, filtering and authentication are **not** available
+yet and are planned for later steps.
+
+The inventory tables exist but are empty - the business has not published stock
+yet, so an empty list is a correct response, not a fault. See `docs/api.md`.
 """.strip()
 
 

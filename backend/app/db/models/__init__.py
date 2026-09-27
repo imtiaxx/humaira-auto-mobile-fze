@@ -12,9 +12,16 @@ Adding a model in a later step:
 3. Run ``alembic revision --autogenerate -m "..."`` and review the output
    before committing. Autogenerate is a starting point, not a guarantee.
 
+Implemented entities:
+
+- ``User`` - identity only. See :mod:`app.db.models.user`.
+- ``Vehicle`` / ``VehicleImage`` - public inventory. See
+  :mod:`app.db.models.vehicle`.
+
 Planned entities - deliberately **not** defined yet, so that their schema can
 be reviewed against real business requirements before it is frozen into a
-migration history: Customer, Vehicle, VehicleImage, VehicleFeature,
+migration history: Customer, VehicleFeature (see the note in
+:mod:`app.db.models.vehicle` on why features are a column rather than a table),
 VehicleInquiry, SavedVehicle, VehicleComparison, ExportRequest, Quote, Lead,
 Notification, AuditLog.
 """
@@ -23,9 +30,10 @@ from __future__ import annotations
 
 from app.db.base import Base
 from app.db.models.user import User
+from app.db.models.vehicle import Vehicle, VehicleImage
 
 #: Every mapped class, exported for convenient imports and test collection.
-ALL_MODELS: tuple[type[Base], ...] = (User,)
+ALL_MODELS: tuple[type[Base], ...] = (User, Vehicle, VehicleImage)
 
 
 def import_models() -> tuple[type[Base], ...]:
@@ -36,4 +44,4 @@ def import_models() -> tuple[type[Base], ...]:
     return ALL_MODELS
 
 
-__all__ = ["ALL_MODELS", "Base", "User", "import_models"]
+__all__ = ["ALL_MODELS", "Base", "User", "Vehicle", "VehicleImage", "import_models"]

@@ -9,8 +9,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import health
+from app.api.v1.endpoints import health, vehicles
 
 api_router = APIRouter()
 # The health router already declares its own `/health` path.
 api_router.include_router(health.router)
+# `/vehicles` and `/vehicles/{slug}`. Declared after health so the static
+# `/health` paths keep matching before any parameterised route is considered.
+api_router.include_router(vehicles.router)
