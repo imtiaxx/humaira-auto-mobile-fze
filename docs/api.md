@@ -16,9 +16,11 @@ routers under separate prefixes, so a privileged write cannot be one decorator
 away from a public read, and the public surface stays read-only without anyone
 having to remember.
 
-Enquiries, saved vehicles, export requests, quotations, filtering and the CRM are
-**not implemented**. Nothing in this document describes planned behaviour as if
-it worked.
+Enquiries, saved vehicles, export requests, quotations and the CRM are **not
+implemented**. Nothing in this document describes planned behaviour as if it
+worked. Filtering on the public vehicle list is the exception and *is*
+implemented - see `GET /api/v1/vehicles` and the note at the end of this
+document.
 
 Interactive documentation is served at `/docs` (Swagger UI) and `/redoc`, with the
 raw schema at `/openapi.json`. Both are disabled when `DOCS_ENABLED=false`,
@@ -188,6 +190,53 @@ staff session. There is no unauthenticated way to publish a vehicle.
 | --- | --- | --- | --- |
 | `page` | integer ≥ 1 | `1` | 1-based |
 | `page_size` | integer 1–100 | `24` | Maximum 100 (`MAX_PAGE_SIZE`) |
+| `query` | string ≤ 120 | - | Free text, case-insensitive substring of make **or** model |
+| `make` | string ≤ 120 | - | Exact, case-insensitive |
+| `body_type` | string ≤ 120 | - | Exact, case-insensitive |
+| `fuel` | string ≤ 120 | - | Exact, case-insensitive |
+| `transmission` | string ≤ 120 | - | Exact, case-insensitive |
+| `min_price` | decimal > 0 | - | Inclusive lower bound, USD |
+| `max_price` | decimal > 0 | - | Inclusive upper bound, USD |
+| `min_year` | integer ≥ 1900 | - | Inclusive |
+| `max_year` | integer ≥ 1900 | - | Inclusive |
+| `status` | `available` \| `reserved` \| `sold` | - | One availability state |
+
+Filters combine with `AND`, and every one is optional: with none supplied the
+response is byte-identical to the unfiltered list this endpoint returned before
+filtering existed.
+
+Semantics that are SQL defaults but are **not** what a caller usually expects:
+
+- **A facet filter excludes unrecorded values.** `?fuel=Diesel` does not return a
+  vehicle whose `fuel` is `NULL`. `NULL` means "not recorded", and a car whose
+  fuel type was never entered is not a diesel.
+- **A price filter excludes "price on request".** `?max_price=40000` does not
+  return a vehicle with `price: null`, because nobody will state its price.
+- **A blank value is no filter.** `?make=` and `?make=%20` both mean "no filter",
+  not "make equals the empty string" - which would return an empty inventory and
+  read as "we stock no Toyotas".
+- **Wildcards in `query` are literal.** `%` and `_` are escaped, so `?query=%`
+  matches nothing rather than everything.
+
+There is **no sorting parameter**. A filtered page is a subset of the same
+newest-first listing, not a second ordering of the same cars.
+
+A filter matching nothing returns the same empty envelope as an empty inventory,
+and for the same reason: it is the truthful answer, not an error.
+
+Rejected filters, all **422** and all with the standard envelope:
+
+| Case | Code |
+| --- | --- |
+| A single parameter out of range (`min_price=0`, `min_year=1800`, `query` over 120 chars) | `request_validation_error` |
+| An unknown `status`, or a minimum above its maximum | `validation_error` |
+
+Two codes for one status is deliberate. `request_validation_error` means one
+parameter was out of range; `validation_error` means the *combination* was
+contradictory, which is a rule no single parameter can express. An unknown
+`status` is a `validation_error` rather than an empty result on purpose: quietly
+answering `?status=avaliable` with the whole inventory would present a broken
+filter link as a working one.
 
 **200** - `application/json`, a `Page[VehicleResponse]` envelope:
 
@@ -237,9 +286,8 @@ Field notes that a client cannot infer from the type:
   "never sent" and `null` as "deliberately withheld". There is no `$0` placeholder.
 - `currency` is always `"USD"`. Non-USD is rejected in the model, by a database
   `CHECK`, and again in the response schema.
-- `status` is one of `available`, `reserved`, `sold`. All three are returned;
-  there is no filtering yet, so a client that wants only available stock must
-  filter the list.
+- `status` is one of `available`, `reserved`, `sold`. All three are returned by
+  default; `?status=available` narrows the list server-side.
 - `year` is bounded to 1900..current year + 1. The upper bound is a data-entry
   guard, not a business rule - it rejects a typo such as `2044`, not a real car.
 - `images` is ordered by `position`, and position `0` is the primary photograph.
@@ -468,8 +516,12 @@ Returns `Page[VehicleAdminResponse]`, which adds `archived_at`, `created_at` and
 `updated_at` to the public shape. A client distinguishes published from withdrawn
 by `archived_at` being `null`.
 
-Filtering - by make, price, status - is **not implemented**; see the end of this
-document.
+Filtering - by make, price, status - is **not implemented on the staff list**, and
+that is deliberate. An editor looking for a car to restore has to be able to find
+it by whatever they remember about it, including details that no longer match the
+published data, so narrowing their view by a facet is the wrong default. The
+public list's filters are documented under `GET /api/v1/vehicles`; they are not
+reused here.
 
 ```bash
 curl -b cookies.txt "http://localhost:8000/api/v1/admin/vehicles?page=1"
@@ -684,7 +736,6 @@ parameters change.
 The following do not exist, and no frontend code depends on them:
 
 ```
-/api/v1/vehicles?make=&body_type=&price_min=&price_max=   filtering
 /api/v1/vehicles/{slug}/inquiries   enquiry submission
 /api/v1/vehicles/compare            side-by-side comparison
 /api/v1/saved-vehicles              customer shortlist        (authenticated)
@@ -692,10 +743,35 @@ The following do not exist, and no frontend code depends on them:
 /api/v1/quotes                      quotations                (staff)
 ```
 
-**Filtering** is a query-string contract. It needs an agreed set of filters and
-their interaction - does `status=available` combine with `body_type`, or replace
-it? - before it is worth pinning. The list endpoint returns everything,
-unfiltered.
+Filtering on the public list is **implemented** and documented under
+`GET /api/v1/vehicles`: `query`, `make`, `body_type`, `fuel`, `transmission`,
+`min_price`, `max_price`, `min_year`, `max_year` and `status`, combined with
+`AND`. The control that uses them is also implemented: `frontend/app/(marketing)/
+inventory/page.tsx` reads the query string through
+`frontend/features/vehicles/lib/filters.ts` and `frontend/lib/api/vehicles.ts`
+sends the parameters, so the query-string contract above is now the literal
+contract the browser produces.
+
+The shape of that loop is worth stating, because it is what keeps the control
+honest:
+
+- The form is `method="get"` and there is no client-side filter state, so the
+  query string *is* the state of the page. A filtered inventory is a shareable
+  address, and the page renders with JavaScript disabled.
+- The values in the URL are the ones the visitor typed. A value the parser
+  refuses - over a documented limit, a sign, a non-number, an unknown status, an
+  inverted range - is reported in place and **not** forwarded, so a mistyped
+  filter produces a message rather than a `422` and an empty grid. The two
+  sources of truth above, this file and `backend/app/schemas/vehicle.py`, are
+  pinned against each other by `features/vehicles/lib/filters.test.ts`.
+- Facet options are derived from the published inventory at render time, not
+  hard-coded, so an option cannot exist that the endpoint cannot satisfy and a
+  recorded value cannot be unreachable. That costs one extra read when a filter
+  is active; a dedicated facets endpoint is the answer if it ever matters.
+
+Still absent, and worth stating because they are the natural next requests:
+sorting, free-text relevance ranking, and any query against the `features`
+JSONB column.
 
 Frontend code reaches the API only through typed wrappers in
 `frontend/lib/api/`. Adding a new resource means adding a module there, not

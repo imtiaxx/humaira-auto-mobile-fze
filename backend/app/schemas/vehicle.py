@@ -4,6 +4,38 @@ This module is the **only** place the database's vocabulary and the API's
 vocabulary are reconciled. Everything downstream - the OpenAPI document, the
 frontend's `VehicleRecord`, the JSON on the wire - speaks the API's words.
 
+Filtering input lives here too
+-------------------------------
+`VehicleFilterQuery` is the request-side half of that same reconciliation: the
+caller says `make=` and `status=`, the database is queried on `brand` and
+`availability`, and the two names never meet. It mirrors the `VehicleFilters`
+interface already declared in `frontend/types/vehicle.ts`, which Step 9 wrote
+before any control existed so the query-string shape would be decided while it
+was still cheap to change. Field names are identical on both sides, so the
+binding that eventually consumes them is a pass-through with no renaming.
+
+What filtering deliberately does not do
+---------------------------------------
+There is no sorting, no free-text ranking and no `VehicleFeature` query. Features
+stay in the JSONB column because the first filter that needs to query a feature
+is the trigger for promoting that column to a table, and that trigger has not
+been pulled. Ordering is unchanged from the unfiltered list, so a filtered page
+is a subset of the same listing rather than a second, differently-ordered view
+of the same cars.
+
+Facet semantics worth stating, because SQL's defaults are not what a customer
+expects:
+
+- Facet equality is case-insensitive, and a vehicle whose facet is `NULL` is
+  **excluded** by any filter on that facet. `NULL` means "not recorded", and a
+  car whose fuel type was never entered is not a diesel.
+- A price filter **excludes** vehicles with no agreed price. `NULL` means "price
+  on request", and a customer who asked for "under 40,000" is not being shown a
+  car whose price nobody will state.
+- Free text is a substring match over make and model, not a fuzzy or
+  tokenised search. "cruis" finds "Cruiser"; "land cru" does not match
+  "Land Cruiser" as a phrase, because the words are searched independently.
+
 Why there is a rename at all
 ----------------------------
 The columns are ``brand`` and ``availability``; the wire is ``make`` and
@@ -38,8 +70,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.db.models.vehicle import (
     EARLIEST_MODEL_YEAR,
@@ -174,3 +207,190 @@ class VehicleResponse(BaseModel):
         if not EARLIEST_MODEL_YEAR <= value <= latest_plausible_model_year():
             raise ValueError(f"year must be between {EARLIEST_MODEL_YEAR} and the next model year.")
         return value
+
+
+# ---------------------------------------------------------------------------
+# Filtering
+# ---------------------------------------------------------------------------
+
+#: Longest facet value accepted. The widest column these compare against is
+#: `vehicles.brand` at 120 characters; the others are 60. A longer value cannot
+#: match any stored row, so rejecting it names the mistake instead of returning
+#: an empty page the caller has to interpret.
+MAX_FACET_LENGTH = 120
+
+#: Longest free-text term accepted. This is the bound that matters most: the term
+#: is interpolated into a `LIKE` pattern, so an unbounded one is a free way to
+#: ask the database to scan the whole table on every keystroke of a search box.
+MAX_QUERY_LENGTH = 120
+
+#: Upper bound on a price filter, in USD. Not a business limit - the point is to
+#: reject a nonsense value (`min_price=1e308`) at the edge rather than letting it
+#: reach a NUMERIC comparison. The column holds 12 digits of precision, so this
+#: is comfortably above any price the business could quote.
+MAX_FILTER_PRICE = Decimal(10**9)
+
+
+def _normalise_optional_facet(value: str | None) -> str | None:
+    """Trim a facet, treating a blank value as absent rather than as a filter.
+
+    A hand-edited or machine-built URL carries `?make=` far more often than it
+    carries nothing at all, and `make=` means "no filter" to a human. Matching
+    on the empty string instead would return an empty inventory and read as
+    "there are no Toyotas", which is a materially different and wrong claim.
+    """
+    if value is None:
+        return None
+    trimmed = value.strip()
+    return trimmed or None
+
+
+class VehicleFilterQuery(BaseModel):
+    """Validated filter input for `GET /api/v1/vehicles`.
+
+    Field-for-field mirror of `VehicleFilters` in
+    `frontend/types/vehicle.ts`. Every field is optional and every field is
+    absent-by-default, so the unfiltered request is byte-identical to the one
+    this endpoint answered before filtering existed.
+
+    Not frozen, and deliberately: it is constructed once per request by the
+    route's dependency and then only read, so immutability would buy nothing
+    here, and `PageParams` - the other query model in this project - is plain
+    too.
+    """
+
+    query: str | None = Field(
+        default=None,
+        max_length=MAX_QUERY_LENGTH,
+        description=(
+            "Free text matched case-insensitively against make and model, as a "
+            "substring. Omit for no text search."
+        ),
+    )
+    make: str | None = Field(
+        default=None,
+        max_length=MAX_FACET_LENGTH,
+        description="Exact make, matched case-insensitively. e.g. 'Toyota'.",
+    )
+    body_type: str | None = Field(
+        default=None,
+        max_length=MAX_FACET_LENGTH,
+        description="Exact body type, case-insensitive. e.g. 'SUV'.",
+    )
+    fuel: str | None = Field(
+        default=None,
+        max_length=MAX_FACET_LENGTH,
+        description="Exact fuel type, case-insensitive. e.g. 'Diesel'.",
+    )
+    transmission: str | None = Field(
+        default=None,
+        max_length=MAX_FACET_LENGTH,
+        description="Exact transmission, case-insensitive. e.g. 'Automatic'.",
+    )
+    min_price: Decimal | None = Field(
+        default=None,
+        gt=0,
+        le=MAX_FILTER_PRICE,
+        description="Lowest asking price in USD, inclusive. Excludes 'price on request'.",
+    )
+    max_price: Decimal | None = Field(
+        default=None,
+        gt=0,
+        le=MAX_FILTER_PRICE,
+        description="Highest asking price in USD, inclusive. Excludes 'price on request'.",
+    )
+    min_year: int | None = Field(
+        default=None,
+        ge=EARLIEST_MODEL_YEAR,
+        description="Earliest model year, inclusive.",
+    )
+    max_year: int | None = Field(
+        default=None,
+        ge=EARLIEST_MODEL_YEAR,
+        description="Latest model year, inclusive.",
+    )
+    status: str | None = Field(
+        default=None,
+        description="Restrict to one availability state: available, reserved or sold.",
+    )
+
+    @field_validator("query", "make", "body_type", "fuel", "transmission")
+    @classmethod
+    def _blank_facet_is_absent(cls, value: str | None) -> str | None:
+        return _normalise_optional_facet(value)
+
+    @field_validator("status")
+    @classmethod
+    def _reject_unknown_status(cls, value: str | None) -> str | None:
+        """An unknown state is a 422, never a silent empty result.
+
+        Defaulting an unrecognised status to "no filter" would answer a request
+        for `?status=avaliable` (note the typo) with the entire inventory,
+        presenting a broken link as a working filter. Refusing names the mistake.
+        """
+        if value is None:
+            return None
+        normalised = value.strip().lower()
+        if normalised == "":
+            return None
+        if normalised not in VEHICLE_AVAILABILITY_VALUES:
+            raise ValueError(f"status must be one of {VEHICLE_AVAILABILITY_VALUES}.")
+        return normalised
+
+    def validated(self) -> VehicleFilterQuery:
+        """Return self, for a caller that wants the cross-field checks run.
+
+        Preferred path is `model_validator` below, which Pydantic turns into a
+        `ValidationError` that FastAPI reports as a 422 like every other bad
+        request. This method exists for a caller that already holds a validated
+        instance and wants the ordering rules applied without going back through
+        validation.
+        """
+        _check_filter_ranges(self)
+        return self
+
+    @model_validator(mode="after")
+    def _check_ranges(self) -> VehicleFilterQuery:
+        """Cross-field checks a `field_validator` cannot express.
+
+        Pydantic validates one field at a time, so "min_price is greater than
+        max_price" has nowhere to live in a `field_validator`. It lives here, and
+        raising `ValueError` from a model validator is what lets Pydantic wrap it
+        into the same `ValidationError` - and so the same `422` with the same
+        `request_validation_error` envelope - as an out-of-range bound. A bare
+        `ValueError` escaping a dependency would instead be a `500`, which is the
+        wrong answer to a badly typed query string.
+        """
+        _check_filter_ranges(self)
+        return self
+
+
+def _check_filter_ranges(filters: VehicleFilterQuery) -> None:
+    """Reject a minimum above its maximum, in both directions.
+
+    Both are checked because `min_price=90000&max_price=` is the same mistake
+    typed the other way round, and a filter that silently matches nothing is
+    indistinguishable from a business that stocks nothing.
+    """
+    if (
+        filters.min_price is not None
+        and filters.max_price is not None
+        and filters.min_price > filters.max_price
+    ):
+        raise ValueError("min_price cannot be greater than max_price.")
+
+    if (
+        filters.min_year is not None
+        and filters.max_year is not None
+        and filters.min_year > filters.max_year
+    ):
+        raise ValueError("min_year cannot be greater than max_year.")
+
+    # The same plausibility bound `VehicleResponse` enforces on the way out,
+    # applied on the way in, so a filter cannot ask for a year no vehicle has.
+    latest = latest_plausible_model_year()
+    if filters.min_year is not None and filters.min_year > latest:
+        raise ValueError(f"min_year cannot be later than the next model year ({latest}).")
+
+    if filters.max_year is not None and filters.max_year > latest:
+        raise ValueError(f"max_year cannot be later than the next model year ({latest}).")

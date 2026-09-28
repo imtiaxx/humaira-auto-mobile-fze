@@ -175,14 +175,19 @@ class Vehicle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     this repository, and an empty inventory is rendered honestly rather than
     padded.
 
-    Indexed columns are exactly the four the current queries use: the unique
-    ``slug`` and ``vin``, the ``created_at`` the listing order sorts by, and
-    ``vehicle_images.vehicle_id`` for the child join. The filtering indexes
-    named in `docs/architecture.md` - make, body type, fuel, transmission,
-    price range, year range, and a make/model text search - are deliberately
-    **not** created here: no query filters on them yet, and an index nothing
-    reads costs write throughput and storage forever. They belong in the step
-    that adds filtering, chosen from the queries that step actually runs.
+    Indexed columns are the unique ``slug`` and ``vin``, the ``created_at`` the
+    listing order sorts by, and ``vehicle_images.vehicle_id`` for the child
+    join.
+
+    The filter indexes named in `docs/architecture.md` - make, body type, fuel,
+    transmission, price range, year range, and a make/model text search - are
+    still **not** created here. The queries that read them have since landed
+    (`GET /vehicles` filters, in `app/repositories/vehicle.py`), so the case for
+    adding them is made; they are not added in the same change as the queries
+    because an index is a schema change, and mixing the two makes a review of
+    "did this change what it claims to" much harder. They belong in a migration
+    of their own, measured against the inventory size this business actually
+    reaches.
     """
 
     __tablename__ = "vehicles"

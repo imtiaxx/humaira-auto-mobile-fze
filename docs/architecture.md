@@ -405,8 +405,9 @@ literal segment and reject it as an invalid UUID - the dashboard would look brok
 for a reason with nothing to do with the dashboard. The `/-/` prefix is a second
 guard: no UUID can begin with `-`.
 
-**Not implemented:** `/vehicles?` filtering, `/vehicles/{slug}/inquiries`,
-`/vehicles/compare`, `/saved-vehicles`, `/export-requests`, `/quotes`.
+**Not implemented:** `/vehicles/{slug}/inquiries`, `/vehicles/compare`,
+`/saved-vehicles`, `/export-requests`, `/quotes`. Public `/vehicles?` filtering
+*is* implemented, on the list route only.
 
 Two endpoint families are deliberately distinct:
 
@@ -505,7 +506,10 @@ list this section originally sketched:
   Features are a flat key/value set that is written and read whole, never
   filtered on, joined or aggregated. Promoting the column to a table is a
   contained migration, and the trigger for doing it is the first filter that
-  needs to query a feature ("all automatics under 40,000").
+  needs to query *a feature* ("all automatics under 40,000"). The filter control
+  on `/inventory` does not fire that trigger: it filters the dedicated columns
+  and does not read `features` at all, so the JSONB decision is untouched by
+  it.
 - **`brand` and `availability` are the column names; `make` and `status` are the
   wire names.** The frontend domain type was written first from the rendered
   requirements, and one vocabulary from the database to the DOM means the
@@ -517,10 +521,22 @@ The same reasoning applies to `vehicles.location`, which is free text rather tha
 a foreign key: it becomes a `Location` reference when stock is genuinely held at
 more than one depot, which is also when a customer would start filtering by it.
 
-Filtering is **not** implemented, and no speculative indexes were added for it.
-When filtering lands it will be served by indexed columns on `Vehicle` for the
-high-cardinality fields buyers actually filter on (make, body type, fuel,
-transmission, price range, year range), with a search index over make/model text.
+Filtering is **not** indexed yet, though the queries that need the indexes now
+exist: `GET /api/v1/vehicles` accepts `query`, `make`, `body_type`, `fuel`,
+`transmission`, `min_price`, `max_price`, `min_year`, `max_year` and `status`,
+and composes them in `vehicle_filter_clauses` in
+`backend/app/repositories/vehicle.py`. Facets are case-insensitive equality
+expressed as `lower(col) = lower(value)` so a plain btree index is usable; the
+free-text term is a substring match over make and model, which is the case that
+genuinely needs the trigram index below.
+
+So when the indexes land they will be: btree on `lower(brand)`, `lower(body_type)`,
+`lower(fuel)`, `lower(transmission)`, `price` and `year` for the high-cardinality
+fields buyers actually filter on, plus a `pg_trgm` GIN index over make/model text
+for the substring search. They are deliberately not in the same change as the
+queries, because an index is a schema change and bundling the two makes a review
+of what a change actually did much harder.
+
 Vehicle list endpoints return the shared `Page<T>` envelope already defined in
 `app/utils/pagination.py`.
 
@@ -700,27 +716,40 @@ picture of a car that is not theirs.
 
 ## 9. What deliberately does not exist yet
 
-No vehicle **search or filtering** - the public list returns everything, newest
-first, unfiltered by make, body type, price or status. The staff list does the
-same, and always includes archived vehicles so an editor can find the car they are
-trying to restore. No vehicle comparison, enquiry, WhatsApp, phone or export forms.
-No saved vehicles or shortlist, and therefore **no customer accounts** - staff
-authentication exists, customer authentication does not. No quotations, CRM or
-lead management. No seed data, testimonials, reviews or statistics. No deployment
+Vehicle **filtering** exists on the public list, and so does the **control** for
+it. `GET /api/v1/vehicles` accepts `query`, `make`, `body_type`, `fuel`,
+`transmission`, price and year bounds, and `status`; `/inventory` renders those
+parameters as a `method="get"` form, so the query string is the state of the page
+and the page needs no JavaScript to filter. Facet options are derived from the
+published rows at render time rather than hard-coded, so an option can never
+exist that the endpoint cannot satisfy.
+
+Sorting and relevance ranking do not exist. The staff list is still unfiltered
+and always includes archived vehicles, so an editor can find the car they are
+trying to restore. No vehicle comparison, enquiry, WhatsApp, phone or export
+forms. No saved vehicles or shortlist, and therefore **no customer accounts** -
+staff authentication exists, customer authentication does not. No quotations,
+CRM or lead management. No testimonials, reviews or statistics. No deployment
 configuration, domain, DNS or CI/CD. No payment integration. No AI features.
 
-**Zero vehicles is still the correct state.** `vehicles` and `vehicle_images` exist
-and are empty. The write path now exists, so the next step is data, not code: an
-operator creates a staff account and publishes the first car.
+**The inventory now holds published vehicles, so the page is no longer empty.**
+An unfiltered `/inventory` renders every non-archived vehicle, and the filter
+control is only as good as what it is derived from - the moment a car is
+archived or published the dropdowns change on the next request, with no
+redeploy and no cache to clear. Two states remain genuinely different, and both
+are handled: no published vehicles at all is an empty-inventory state, while a
+filter that matched nothing is a no-match state carrying the filters as a
+readable summary and a link back to the full inventory. Collapsing those two into
+one message would tell a visitor the dealership sold out when it has stock.
 
 Two consequences worth naming, because they are the ones most likely to be
 mistaken for bugs:
 
-- The inventory page is empty until someone publishes stock. Nothing is wrong
-  with it.
-- A vehicle that exists in the database is reachable at `/inventory/{slug}`, and
-  one that does not is a 404. With no rows, every slug is a 404, which is the
-  truthful answer.
+- A filter that matches nothing renders no vehicle cards, and says so. The
+  cause is in the query string, visible in the address bar.
+- A value the parser refuses is shown in its field, with the reason, and is not
+  sent to the API. The grid behind it therefore shows the *rest* of the
+  visitor's search, not an empty page.
 
 These are later steps. The recommendation is that they are added in the order
 listed in the README, so that each layer is verified before the next depends on

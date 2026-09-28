@@ -20,6 +20,7 @@ place in the repository where one exists.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
@@ -34,7 +35,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.models.vehicle import Vehicle, VehicleImage
 from app.main import create_app
-from app.schemas.vehicle import VehicleResponse
+from app.repositories.vehicle import vehicle_filter_clauses
+from app.schemas.vehicle import VehicleFilterQuery, VehicleResponse
 from app.services.vehicles import get_vehicle_by_slug, list_vehicles
 from app.utils.pagination import MAX_PAGE_SIZE, Page, PageParams
 
@@ -659,3 +661,561 @@ async def test_error_responses_never_contain_credentials(db_client: AsyncClient)
     serialised = str(response.json()).lower()
     for secret_marker in ("postgresql", "asyncpg", "password", "secret", "://"):
         assert secret_marker not in serialised
+
+
+# ---------------------------------------------------------------------------
+# Filtering
+# ---------------------------------------------------------------------------
+#
+# Every vehicle below is a throwaway row created inside the rolled-back test
+# transaction, matching the file's existing rule that no real vehicle data and no
+# seed data appears here. The makes and models are invented on purpose: a filter
+# test that filtered on "Toyota" would pass or fail depending on stock the
+# business happens to hold, which is not a property of the filter.
+
+
+async def _seed_filterable_stock(session: AsyncSession) -> None:
+    """A small, deliberately varied inventory to filter.
+
+    Chosen so each filter has something to exclude for a *reason* rather than by
+    accident: one unpriced vehicle, one with an unrecorded fuel type, two makes,
+    two body types, and a year span on both sides of a boundary.
+    """
+    await _make_vehicle(
+        session,
+        slug="filter-alpha-suv",
+        brand="Alphamobile",
+        model="Cruiser",
+        year=2020,
+        body_type="SUV",
+        fuel="Diesel",
+        transmission="Automatic",
+        price=Decimal("40000"),
+    )
+    await _make_vehicle(
+        session,
+        slug="filter-bravo-suv",
+        brand="Bravomotor",
+        model="Wanderer",
+        year=2024,
+        body_type="SUV",
+        fuel="Petrol",
+        transmission="Manual",
+        price=Decimal("90000"),
+    )
+    await _make_vehicle(
+        session,
+        slug="filter-charlie-saloon",
+        brand="Alphamobile",
+        model="Cruiser",
+        year=2022,
+        body_type="Saloon",
+        fuel=None,
+        transmission=None,
+        price=Decimal("15000"),
+    )
+    # No price recorded: the "price on request" case a price filter must exclude.
+    await _make_vehicle(
+        session,
+        slug="filter-delta-unpriced",
+        brand="Deltamotors",
+        model="Nomad",
+        year=2021,
+        body_type="SUV",
+        fuel="Diesel",
+        price=None,
+    )
+
+
+def _slugs(response: Any) -> list[str]:
+    return [item["slug"] for item in response.json()["items"]]
+
+
+async def test_unfiltered_list_is_unchanged_by_the_arrival_of_filters(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The step that added filtering must not change the answer to a plain request.
+
+    This is the regression that matters most: the inventory page calls this
+    endpoint with no query string at all, so a change to the unfiltered path
+    would alter the public site without anybody asking for it.
+    """
+    await _seed_filterable_stock(db_session)
+
+    response = await db_client.get(VEHICLES_URL)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 4
+    assert sorted(_slugs(response)) == [
+        "filter-alpha-suv",
+        "filter-bravo-suv",
+        "filter-charlie-saloon",
+        "filter-delta-unpriced",
+    ]
+    # Defaults are untouched: the same envelope the endpoint returned before
+    # filtering existed.
+    assert body["page"] == 1
+    assert body["page_size"] == 24
+
+
+async def test_a_blank_filter_is_the_same_as_no_filter(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """`?make=` means "no filter" to a human, so it must mean it to the server.
+
+    Machine-built and hand-edited URLs carry an empty value far more often than
+    they carry nothing. Matching on the empty string would return an empty
+    inventory and read as "there are no vehicles", which is a wrong claim
+    rather than an unhelpful one.
+    """
+    await _seed_filterable_stock(db_session)
+
+    plain = await db_client.get(VEHICLES_URL)
+    blank = await db_client.get(VEHICLES_URL, params={"make": "", "fuel": "   "})
+
+    assert blank.status_code == 200
+    assert blank.json()["total"] == plain.json()["total"] == 4
+
+
+async def test_make_filter_is_case_insensitive(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A visitor types "alphamobile", not the capitalisation the database holds."""
+    await _seed_filterable_stock(db_session)
+
+    for value in ("Alphamobile", "alphamobile", "ALPHAMOBILE", "  Alphamobile  "):
+        response = await db_client.get(VEHICLES_URL, params={"make": value})
+        assert response.status_code == 200, value
+        assert sorted(_slugs(response)) == ["filter-alpha-suv", "filter-charlie-saloon"], value
+
+
+async def test_facet_filters_exclude_vehicles_with_no_recorded_value(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """`NULL` is "not recorded", so it is not a match.
+
+    The saloon has no fuel type entered. Filtering on fuel must not sweep it in:
+    a car whose fuel was never recorded is not a petrol car, and offering it
+    under a fuel filter is a claim nobody can support.
+    """
+    await _seed_filterable_stock(db_session)
+
+    response = await db_client.get(VEHICLES_URL, params={"fuel": "Diesel"})
+
+    assert sorted(_slugs(response)) == ["filter-alpha-suv", "filter-delta-unpriced"]
+
+
+async def test_free_text_searches_make_and_model_as_a_substring(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Substring, not exact: "cruis" is what someone typing a model name does."""
+    await _seed_filterable_stock(db_session)
+
+    by_model = await db_client.get(VEHICLES_URL, params={"query": "cruis"})
+    assert sorted(_slugs(by_model)) == ["filter-alpha-suv", "filter-charlie-saloon"]
+
+    by_make = await db_client.get(VEHICLES_URL, params={"query": "DELTA"})
+    assert _slugs(by_make) == ["filter-delta-unpriced"]
+
+    # Case-insensitive, and matching either column rather than both.
+    assert (await db_client.get(VEHICLES_URL, params={"query": "wanderer"})).json()["total"] == 1
+    assert (await db_client.get(VEHICLES_URL, params={"query": "mobile"})).json()["total"] == 2
+
+
+async def test_free_text_does_not_treat_wildcards_as_wildcards(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A literal `%` must find nothing, not everything.
+
+    The search term is interpolated into a `LIKE` pattern, so without escaping a
+    single keystroke turns the search box into "match every row" - and an
+    unindexed scan behind it. This test is the guard on that escaping.
+    """
+    await _seed_filterable_stock(db_session)
+
+    for term in ("%", "_", "%%"):
+        response = await db_client.get(VEHICLES_URL, params={"query": term})
+        assert response.status_code == 200, term
+        assert response.json()["total"] == 0, term
+
+    # `_` is a single-character wildcard in LIKE, so "Cru_isr" must not match
+    # "Crusader" by accident either.
+    underscore = await db_client.get(VEHICLES_URL, params={"query": "Cru_isr"})
+    assert underscore.json()["total"] == 0
+
+
+async def test_price_filter_excludes_vehicles_priced_on_request(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Asking for "under 40,000" must not return a car with no stated price.
+
+    A `NULL` price is a real, common state - the frontend renders it as "Price
+    on request". Silently including those rows in a price range would answer a
+    question about price with a vehicle that has no price.
+    """
+    await _seed_filterable_stock(db_session)
+
+    response = await db_client.get(VEHICLES_URL, params={"max_price": "50000"})
+
+    assert sorted(_slugs(response)) == ["filter-alpha-suv", "filter-charlie-saloon"]
+
+
+async def test_price_bounds_are_inclusive(db_client: AsyncClient, db_session: AsyncSession) -> None:
+    """A boundary price is inside the range a customer asked for."""
+    await _seed_filterable_stock(db_session)
+
+    response = await db_client.get(
+        VEHICLES_URL, params={"min_price": "40000", "max_price": "40000"}
+    )
+
+    assert _slugs(response) == ["filter-alpha-suv"]
+
+
+async def test_price_filter_accepts_a_fractional_value(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """`Decimal`, not float: 40000.50 is a price a database can hold exactly."""
+    await _make_vehicle(
+        session=db_session,
+        slug="fractional",
+        brand="Frac",
+        model="Tional",
+        year=2023,
+        price=Decimal("40000.50"),
+    )
+    await _make_vehicle(
+        session=db_session,
+        slug="rounder",
+        brand="Frac",
+        model="Whole",
+        year=2023,
+        price=Decimal("40001.00"),
+    )
+
+    response = await db_client.get(VEHICLES_URL, params={"max_price": "40000.50"})
+
+    assert _slugs(response) == ["fractional"]
+
+
+async def test_year_bounds_are_inclusive(db_client: AsyncClient, db_session: AsyncSession) -> None:
+    await _seed_filterable_stock(db_session)
+
+    response = await db_client.get(VEHICLES_URL, params={"min_year": 2021, "max_year": 2022})
+
+    assert sorted(_slugs(response)) == ["filter-charlie-saloon", "filter-delta-unpriced"]
+
+
+async def test_status_filter_selects_one_availability_state(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """`status` is the wire name for the `availability` column."""
+    await _make_vehicle(
+        session=db_session,
+        slug="on-sale",
+        brand="Stat",
+        model="Available",
+        year=2023,
+        availability="available",
+    )
+    await _make_vehicle(
+        session=db_session,
+        slug="already-sold",
+        brand="Stat",
+        model="Sold",
+        year=2023,
+        availability="sold",
+    )
+    await _make_vehicle(
+        session=db_session,
+        slug="on-hold",
+        brand="Stat",
+        model="Reserved",
+        year=2023,
+        availability="reserved",
+    )
+
+    response = await db_client.get(VEHICLES_URL, params={"status": "sold"})
+
+    assert _slugs(response) == ["already-sold"]
+
+
+async def test_filters_combine_with_and(db_client: AsyncClient, db_session: AsyncSession) -> None:
+    """Two filters narrow, they do not widen."""
+    await _seed_filterable_stock(db_session)
+
+    response = await db_client.get(VEHICLES_URL, params={"make": "Alphamobile", "body_type": "SUV"})
+
+    assert _slugs(response) == ["filter-alpha-suv"]
+
+
+async def test_total_counts_the_filtered_set_not_the_table(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The count and the rows must agree, or the paginator lies.
+
+    Both come from one predicate list, and this is the assertion that would fail
+    if someone gave the count query its own, narrower condition.
+    """
+    await _seed_filterable_stock(db_session)
+
+    response = await db_client.get(VEHICLES_URL, params={"body_type": "SUV"})
+
+    body = response.json()
+    assert body["total"] == 3
+    assert len(body["items"]) == 3
+    assert body["total_pages"] == 1
+
+
+async def test_filtered_total_and_pagination_agree_across_pages(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Paging a filtered set stays self-consistent."""
+    for index in range(5):
+        await _make_vehicle(
+            session=db_session,
+            slug=f"paged-{index}",
+            brand="Paged",
+            model="Many",
+            year=2023,
+            body_type="SUV",
+        )
+    await _make_vehicle(
+        session=db_session, slug="other", brand="Other", model="One", year=2023, body_type="Saloon"
+    )
+
+    first = await db_client.get(VEHICLES_URL, params={"body_type": "SUV", "page_size": 2})
+    assert first.json()["total"] == 5
+    assert len(first.json()["items"]) == 2
+    assert first.json()["total_pages"] == 3
+
+    last = await db_client.get(VEHICLES_URL, params={"body_type": "SUV", "page_size": 2, "page": 3})
+    assert len(last.json()["items"]) == 1
+    # No row appears on two pages, and none is skipped.
+    seen = {item["slug"] for item in first.json()["items"] + last.json()["items"]}
+    middle = await db_client.get(
+        VEHICLES_URL, params={"body_type": "SUV", "page_size": 2, "page": 2}
+    )
+    seen |= {item["slug"] for item in middle.json()["items"]}
+    assert len(seen) == 5
+
+
+async def test_archived_vehicles_stay_hidden_when_filtered(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A filter must not become a way to see withdrawn stock.
+
+    Archived is not a facet a caller can ask for: the public endpoint has no
+    `include_archived` parameter, and adding a filter that reached past that
+    predicate would republish cars the business has withdrawn.
+    """
+    await _make_vehicle(
+        session=db_session,
+        slug="live-one",
+        brand="Arcmobile",
+        model="Shown",
+        year=2023,
+        body_type="SUV",
+    )
+    await _make_vehicle(
+        session=db_session,
+        slug="withdrawn",
+        brand="Arcmobile",
+        model="Hidden",
+        year=2023,
+        body_type="SUV",
+        archived_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+
+    for params in ({"make": "Arcmobile"}, {"body_type": "SUV"}, {"query": "mobile"}, {}):
+        response = await db_client.get(VEHICLES_URL, params=params)
+        assert _slugs(response) == ["live-one"], params
+
+    # And there is no parameter that reaches it.
+    for name in ("include_archived", "archived", "with_archived"):
+        response = await db_client.get(VEHICLES_URL, params={name: "true"})
+        assert _slugs(response) == ["live-one"], name
+
+
+async def test_a_filter_matching_nothing_is_an_empty_envelope_not_an_error(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The same answer as an empty inventory, for the same reason."""
+    await _seed_filterable_stock(db_session)
+
+    response = await db_client.get(VEHICLES_URL, params={"make": "Nothingstocks"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "items": [],
+        "total": 0,
+        "page": 1,
+        "page_size": 24,
+        "total_pages": 0,
+    }
+
+
+async def test_an_unknown_status_is_a_422(db_client: AsyncClient) -> None:
+    """A mistyped filter link must be visible, not silently empty.
+
+    Defaulting an unrecognised status to "no filter" would answer
+    `?status=avaliable` with the whole inventory, presenting a broken link as a
+    working filter.
+    """
+    response = await db_client.get(VEHICLES_URL, params={"status": "avaliable"})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"
+
+
+async def test_contradictory_bounds_are_a_422(db_client: AsyncClient) -> None:
+    """A minimum above its maximum is a bad request, not an empty result.
+
+    Both directions are checked, because `min_price=90000&max_price=` is the
+    same mistake typed the other way round.
+    """
+    for params in (
+        {"min_price": "90000", "max_price": "1000"},
+        {"min_year": "2024", "max_year": "2020"},
+    ):
+        response = await db_client.get(VEHICLES_URL, params=params)
+        assert response.status_code == 422, params
+        assert response.json()["error"]["code"] == "validation_error"
+
+
+async def test_absurd_bounds_are_refused_at_the_edge(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Out-of-range values are rejected before they reach a comparison."""
+    await _seed_filterable_stock(db_session)
+
+    for params in (
+        {"min_price": "0"},
+        {"min_price": "-1"},
+        {"max_price": "10000000000"},
+        {"min_year": "1800"},
+        {"query": "x" * 200},
+        {"make": "y" * 200},
+    ):
+        response = await db_client.get(VEHICLES_URL, params=params)
+        assert response.status_code == 422, params
+
+
+async def test_a_year_further_off_than_next_model_year_is_refused(
+    db_client: AsyncClient,
+) -> None:
+    """The same plausibility bound the response schema enforces, on the way in."""
+    from app.schemas.vehicle import latest_plausible_model_year
+
+    beyond = latest_plausible_model_year() + 1
+
+    response = await db_client.get(VEHICLES_URL, params={"min_year": beyond})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"
+
+
+async def test_the_detail_route_ignores_filters(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A slug addresses one vehicle, so a filter beside it could only be empty.
+
+    `?make=Nothing` on a detail route must still return the car. Anything else
+    would make a vehicle unreachable by a link that happens to carry a filter.
+    """
+    await _make_vehicle(
+        session=db_session, slug="detail-target", brand="Detail", model="Target", year=2023
+    )
+
+    response = await db_client.get(
+        f"{VEHICLES_URL}/detail-target", params={"make": "Nothing", "query": "zzz"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["slug"] == "detail-target"
+
+
+async def test_the_public_list_stays_read_only_with_filters(
+    db_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Adding query parameters must not have opened a write verb.
+
+    Filtering is a read. If a future change made these routes accept a write, a
+    filtered URL would be a way to mutate inventory.
+    """
+    await _make_vehicle(
+        session=db_session, slug="readonly-check", brand="Read", model="Only", year=2023
+    )
+
+    for method in ("POST", "PUT", "PATCH", "DELETE"):
+        response = await db_client.request(
+            method, VEHICLES_URL, params={"make": "Read", "query": "only"}
+        )
+        assert response.status_code == 405, method
+
+
+async def test_filters_are_advertised_in_the_openapi_document(
+    db_client: AsyncClient,
+) -> None:
+    """Every filter is documented where a caller can actually read it.
+
+    The endpoint declares explicit `Query` parameters precisely so each bound and
+    description reaches the OpenAPI document; without a filter, a caller has no
+    documented way to learn that one exists.
+    """
+    response = await db_client.get("/openapi.json")
+    assert response.status_code == 200
+
+    parameters = response.json()["paths"]["/api/v1/vehicles"]["get"]["parameters"]
+    declared = {p["name"] for p in parameters}
+
+    assert {
+        "query",
+        "make",
+        "body_type",
+        "fuel",
+        "transmission",
+        "min_price",
+        "max_price",
+        "min_year",
+        "max_year",
+        "status",
+        "page",
+        "page_size",
+    } <= declared
+
+    # The status filter must be spelled `status` on the wire even though the
+    # dependency parameter is named differently to avoid shadowing the import.
+    status_param = next(p for p in parameters if p["name"] == "status")
+    assert status_param["in"] == "query"
+
+
+def test_filter_field_names_match_the_frontend_contract() -> None:
+    """The wire names are the frontend's names.
+
+    `VehicleFilters` in `frontend/types/vehicle.ts` is a TypeScript type no Python
+    test can read, so the two halves of the repository are only kept honest by an
+    assertion that fails when one side moves without the other. Renaming a filter
+    on the way through the seam is the exact class of bug this file already guards
+    for the response body.
+    """
+    expected = {
+        "query",
+        "make",
+        "body_type",
+        "fuel",
+        "transmission",
+        "min_price",
+        "max_price",
+        "min_year",
+        "max_year",
+        "status",
+    }
+
+    assert set(VehicleFilterQuery.model_fields) == expected
+
+
+def test_no_filter_produces_no_predicates() -> None:
+    """The unfiltered query is the one that ran before filtering existed."""
+    assert vehicle_filter_clauses(None) == []
+    assert vehicle_filter_clauses(VehicleFilterQuery()) == []

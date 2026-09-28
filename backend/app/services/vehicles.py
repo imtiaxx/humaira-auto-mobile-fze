@@ -21,7 +21,7 @@ from app.core.errors import NotFoundError
 from app.core.logging import get_logger
 from app.db.models.vehicle import Vehicle
 from app.repositories.vehicle import VehicleRepository
-from app.schemas.vehicle import VehicleResponse
+from app.schemas.vehicle import VehicleFilterQuery, VehicleResponse
 from app.utils.pagination import Page, PageParams
 
 logger = get_logger(__name__)
@@ -62,6 +62,8 @@ def _to_responses(vehicles: Sequence[Vehicle]) -> tuple[list[VehicleResponse], i
 async def list_vehicles(
     session: AsyncSession,
     params: PageParams | None = None,
+    *,
+    filters: VehicleFilterQuery | None = None,
 ) -> Page[VehicleResponse]:
     """One page of vehicles in the shared `Page<T>` envelope.
 
@@ -69,10 +71,18 @@ async def list_vehicles(
     envelope with `items: []` and `total: 0`, which is the shape the frontend's
     empty state already expects and the only truthful representation of a
     business that has not published stock yet.
+
+    A filter that matches nothing is the same answer, and deliberately so: a
+    customer who searched for something the business does not have should be told
+    the inventory is empty for that search, not handed a different list.
+
+    `filters=None` and an all-`None` `VehicleFilterQuery` are equivalent - the
+    repository produces no predicates either way - so a caller that has not
+    decided whether to filter does not have to branch.
     """
     pagination = params or PageParams()
     repository = VehicleRepository(session)
-    vehicles, total = await repository.list_paginated(pagination)
+    vehicles, total = await repository.list_paginated(pagination, filters=filters)
     responses, _rejected = _to_responses(vehicles)
 
     return Page.build(responses, total=total, params=pagination)

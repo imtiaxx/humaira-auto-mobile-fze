@@ -12,11 +12,97 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import asc, desc, func, select
+from sqlalchemy import asc, desc, func, or_, select
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.db.models.vehicle import Vehicle
 from app.repositories.base import BaseRepository
+from app.schemas.vehicle import VehicleFilterQuery
 from app.utils.pagination import PageParams
+
+#: Escape character for the `LIKE`/`ILIKE` patterns built from user text.
+#:
+#: SQLAlchemy's `ilike()` emits `ILIKE` on PostgreSQL and `lower(x) LIKE lower(y)`
+#: on SQLite, which is what lets one expression serve the application and the
+#: SQLite-backed test suite. Both honour an `ESCAPE` clause, and both need one:
+#: without escaping, a visitor typing `%` gets a pattern that matches every row,
+#: and `_` matches any single character. That is a search box that reports
+#: "everything matches" for a keystroke, and an unindexed scan behind it.
+LIKE_ESCAPE = "\\"
+
+
+def _like_term(value: str) -> str:
+    """Wrap a value in `%` wildcards with its own wildcards neutralised."""
+    escaped = (
+        value.replace(LIKE_ESCAPE, LIKE_ESCAPE * 2)
+        .replace("%", f"{LIKE_ESCAPE}%")
+        .replace("_", f"{LIKE_ESCAPE}_")
+    )
+    return f"%{escaped}%"
+
+
+def vehicle_filter_clauses(filters: VehicleFilterQuery | None) -> list[ColumnElement[bool]]:
+    """Translate validated filters into WHERE predicates.
+
+    A list rather than a single expression so the caller composes it with its own
+    visibility predicate and, critically, hands the *same* list to the row query
+    and the count query. A total that counts a different set than the page
+    returns is how a paginator ends up advertising vehicles that never appear.
+
+    Every predicate is skipped when its filter is absent, so an all-`None`
+    `VehicleFilterQuery` produces an empty list and the unfiltered query is
+    byte-identical to the one this repository ran before filtering existed.
+
+    Facet comparisons are case-insensitive equality rather than substring
+    matching, because these columns are an enumeration in all but name and a
+    substring match on "Petrol" would also match a hypothetical "Petrol-Electric"
+    when the caller asked for petrol. Free text is the opposite case and is
+    deliberately a substring match, because that is what a search box is for.
+    """
+    if filters is None:
+        return []
+
+    clauses: list[ColumnElement[bool]] = []
+
+    if filters.query:
+        term = _like_term(filters.query)
+        clauses.append(
+            or_(
+                Vehicle.brand.ilike(term, escape=LIKE_ESCAPE),
+                Vehicle.model.ilike(term, escape=LIKE_ESCAPE),
+            )
+        )
+
+    # `lower()` on both sides rather than `ilike()` with no wildcard: this is an
+    # equality test, and expressing it as one keeps the index usable. `ilike` with
+    # a bare value would be a case-insensitive equality in PostgreSQL but a
+    # `lower() LIKE` comparison in SQLite, which will not use a plain btree
+    # index on the raw column.
+    for value, column in (
+        (filters.make, Vehicle.brand),
+        (filters.body_type, Vehicle.body_type),
+        (filters.fuel, Vehicle.fuel),
+        (filters.transmission, Vehicle.transmission),
+    ):
+        if value:
+            clauses.append(func.lower(column) == value.lower())
+
+    if filters.status:
+        clauses.append(Vehicle.availability == filters.status)
+
+    # `IS NULL` is never matched by a comparison, so a price or year bound
+    # excludes an unpriced vehicle rather than accidentally including it. That is
+    # the documented behaviour, and the module docstring on filtering says so.
+    if filters.min_price is not None:
+        clauses.append(Vehicle.price >= filters.min_price)
+    if filters.max_price is not None:
+        clauses.append(Vehicle.price <= filters.max_price)
+    if filters.min_year is not None:
+        clauses.append(Vehicle.year >= filters.min_year)
+    if filters.max_year is not None:
+        clauses.append(Vehicle.year <= filters.max_year)
+
+    return clauses
 
 
 def listing_order() -> tuple[Any, ...]:
@@ -54,6 +140,7 @@ class VehicleRepository(BaseRepository[Vehicle]):
         params: PageParams,
         *,
         include_archived: bool = False,
+        filters: VehicleFilterQuery | None = None,
     ) -> tuple[Sequence[Vehicle], int]:
         """One page of vehicles, plus the total matching count.
 
@@ -61,10 +148,8 @@ class VehicleRepository(BaseRepository[Vehicle]):
         code path works on every supported database, and it is paid once per
         request.
 
-        With no filters this reads in whatever order the table is scanned,
-        bounded by `LIMIT`. That is correct at the current scale of zero rows;
-        the filter indexes named in `docs/architecture.md` belong with the
-        filtering step, not before it.
+        `filters` narrows both the rows and the count, from one predicate list
+        built by `vehicle_filter_clauses`, so the two cannot disagree.
 
         `include_archived=False` is the public behaviour and the default: an
         archived vehicle has been withdrawn from sale, and a customer browsing
@@ -72,12 +157,20 @@ class VehicleRepository(BaseRepository[Vehicle]):
         count applies the same predicate as the rows, because a total that
         includes hidden rows would make the paginator advertise vehicles that
         never appear.
+
+        The staff list passes `include_archived=True` and no filters: an editor
+        looking for a car to restore must be able to find it by whatever they
+        remember about it, including the parts that no longer match the published
+        data.
         """
-        filters = [] if include_archived else [Vehicle.archived_at.is_(None)]
+        clauses: list[ColumnElement[bool]] = []
+        if not include_archived:
+            clauses.append(Vehicle.archived_at.is_(None))
+        clauses.extend(vehicle_filter_clauses(filters))
 
         result = await self._session.scalars(
             select(Vehicle)
-            .where(*filters)
+            .where(*clauses)
             .order_by(*listing_order())
             .limit(params.limit)
             .offset(params.offset)
@@ -85,7 +178,7 @@ class VehicleRepository(BaseRepository[Vehicle]):
         vehicles = result.all()
 
         total_result = await self._session.execute(
-            select(func.count()).select_from(Vehicle).where(*filters)
+            select(func.count()).select_from(Vehicle).where(*clauses)
         )
         total = int(total_result.scalar_one())
 
