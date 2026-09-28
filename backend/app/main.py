@@ -49,11 +49,10 @@ public page 404s, but the record and its photographs are kept and stay editable
 in the admin area.
 
 ### Not yet available
-Enquiries, export workflows and inventory filtering are **not** available yet and
-are planned for later steps.
-
-The inventory tables exist but are empty - the business has not published stock
-yet, so an empty list is a correct response, not a fault. See `docs/api.md`.
+Enquiries, export workflows and quotations are **not** available yet and are
+planned for later steps. Filtering on `GET /api/v1/vehicles` **is** available:
+`query`, `make`, `body_type`, `fuel`, `transmission`, `min_price`, `max_price`,
+`min_year`, `max_year` and `status`, combined with `AND`. See `docs/api.md`.
 """.strip()
 
 

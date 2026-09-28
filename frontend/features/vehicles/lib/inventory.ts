@@ -1,10 +1,10 @@
 import { cache } from "react";
 
-import { getVehiclePage } from "@/lib/api/vehicles";
+import { getVehiclePage, type VehicleFilterParams } from "@/lib/api/vehicles";
 import { toInventoryPage } from "@/features/vehicles/lib/vehicle-schema";
 import type { PageParams } from "@/types/api";
 import type { ApiError } from "@/lib/api/errors";
-import type { Vehicle } from "@/types/vehicle";
+import type { Vehicle, VehicleFilters } from "@/types/vehicle";
 
 /**
  * The inventory source.
@@ -59,7 +59,22 @@ const PAGE_SIZE = 100;
 const MAX_PAGES = 500;
 
 /**
- * Reads the whole inventory, in domain form, from the real API.
+ * Reads the published inventory, in domain form, from the real API.
+ *
+ * ---------------------------------------------------------------------------
+ * `filters` narrows the read; it does not filter the returned array
+ * ---------------------------------------------------------------------------
+ * Passing filters sends them to the API, so the *server* decides what matches
+ * and the walk below only ever pages through a result set that is already
+ * correct. Filtering the array here instead would be the wrong shape: the
+ * narrowed set would carry no total of the whole inventory, and the "13 of 13"
+ * line a filtered view needs would be unavailable - the page would know how many
+ * cars matched and nothing about how many exist.
+ *
+ * Called with no argument this is exactly the function it was before, which is
+ * what keeps `getVehicleBySlug()` below honest: a slug lookup must never be
+ * narrowed by whatever filter happens to be in the URL, or `/inventory/prado`
+ * would 404 for anyone arriving from a filtered grid.
  *
  * ---------------------------------------------------------------------------
  * Why this walks every page instead of asking for one
@@ -89,20 +104,23 @@ const MAX_PAGES = 500;
  * for a dealer "that is all we have" is a materially different statement from
  * "we could not reach the inventory service". One is silently wrong; the other
  * shows the existing empty state, which is visibly a state rather than a
- * catalogue, and is the same component used for a filter that matched nothing.
+ * catalogue.
  *
  * So any page failing discards the whole read and returns `[]`. The reason is
  * not lost - `listVehiclesFromSource()` hands it back in `error` for operators;
  * this function has no error channel because its callers cannot act on one.
  */
-export async function listVehicles(): Promise<Vehicle[]> {
+export async function listVehicles(filters: VehicleFilters = {}): Promise<Vehicle[]> {
   const collected: Vehicle[] = [];
 
   for (let page = 1; page <= MAX_PAGES; page += 1) {
-    const result = await listVehiclesFromSource({
-      page,
-      page_size: PAGE_SIZE,
-    });
+    const result = await listVehiclesFromSource(
+      {
+        page,
+        page_size: PAGE_SIZE,
+      },
+      toFilterParams(filters),
+    );
 
     if (!result.ok) {
       return [];
@@ -116,6 +134,45 @@ export async function listVehicles(): Promise<Vehicle[]> {
   }
 
   return collected;
+}
+
+/**
+ * Domain filters to wire filters.
+ *
+ * The camelCase-to-snake_case translation lives here, at the seam, rather than
+ * in the page or in the API binding, for the reason `lib/api/vehicles.ts` gives
+ * for keeping the wire types separate from the domain types: exactly one place
+ * knows both vocabularies. A component that could spell `body_type` is a
+ * component that can be renamed wrongly, and the only symptom is a filter that
+ * quietly stops filtering.
+ *
+ * `undefined` is passed through rather than being dropped here, because
+ * `buildQuery` in `client.ts` already drops absent values, and filtering them
+ * out twice would mean two places had to agree about what "absent" means.
+ *
+ * The parameter type is the domain `VehicleFilters` and not the parser's
+ * `VehicleFiltersShape`, which lists the same fields. Two interfaces with the
+ * same shape is one too many in application code: whichever one the app imports
+ * becomes the definition the rest of the app believes in, and the domain
+ * declaration in `types/vehicle.ts` is the one written down as the contract.
+ * The parser keeps its own copy only because its test file runs under `node
+ * --test`, which resolves neither the `@/` alias nor an extensionless
+ * specifier, and a type-only import would not survive that - it is pinned against
+ * this interface by a test asserting the same field list.
+ */
+function toFilterParams(filters: VehicleFilters): VehicleFilterParams {
+  return {
+    query: filters.query,
+    make: filters.make,
+    body_type: filters.bodyType,
+    fuel: filters.fuel,
+    transmission: filters.transmission,
+    min_price: filters.minPrice,
+    max_price: filters.maxPrice,
+    min_year: filters.minYear,
+    max_year: filters.maxYear,
+    status: filters.status,
+  };
 }
 
 /** What a read from a real inventory source produced. */
@@ -171,12 +228,24 @@ export interface VehicleSourceResult {
  * Catching broadly rather than only `ApiError` is intentional for the same
  * reason. A bug in the normaliser is just as capable of taking the page down as
  * a bad response, and the correct customer-facing behaviour is identical.
+ *
+ * ---------------------------------------------------------------------------
+ * Why a filtered read that returns 422 is not a code smell
+ * ---------------------------------------------------------------------------
+ * A `422` here is not something to be prevented at the transport - it is a state
+ * the page has to be able to render. The filter parser in `filters.ts` rejects
+ * the values a visitor could plausibly mistype, so a `422` from this read means
+ * the two sides of the contract have genuinely diverged, and degrading to the
+ * empty state is still the right customer-facing outcome: thirteen real cars are
+ * a better answer than an error boundary, and the operator learns the reason
+ * from `error`.
  */
 export async function listVehiclesFromSource(
   params: PageParams = {},
+  filters: VehicleFilterParams = {},
 ): Promise<VehicleSourceResult> {
   try {
-    const page = toInventoryPage(await getVehiclePage(params));
+    const page = toInventoryPage(await getVehiclePage(params, filters));
 
     return {
       vehicles: page.vehicles,

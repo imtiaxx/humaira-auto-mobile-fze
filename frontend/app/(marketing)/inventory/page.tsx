@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 
 import { InventoryCta } from "@/features/vehicles/components/inventory-cta";
+import { InventoryFilters } from "@/features/vehicles/components/inventory-filters";
 import { InventoryHeader } from "@/features/vehicles/components/inventory-header";
-import { SourcingCriteria } from "@/features/vehicles/components/sourcing-criteria";
 import { VehicleGrid } from "@/features/vehicles/components/vehicle-grid";
+import { toVehicleFacets } from "@/features/vehicles/lib/facets";
+import { FILTER_KEYS, parseVehicleFilters } from "@/features/vehicles/lib/filters";
 import { listVehicles } from "@/features/vehicles/lib/inventory";
 import { SITE_NAME } from "@/config/site";
 
@@ -74,9 +76,68 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function InventoryPage() {
-  // The one call that will change shape when there is a real inventory source.
-  const vehicles = await listVehicles();
+export default async function InventoryPage({
+  searchParams,
+}: {
+  /**
+   * Next 16: `searchParams` is a Promise, and the type is a plain record rather
+   * than `URLSearchParams`. Both matter. The Promise has to be awaited, and a
+   * value can be `string[]` when a key is repeated - which is why
+   * `parseVehicleFilters` accepts this shape instead of only `URLSearchParams`.
+   */
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+
+  /*
+    The filter bar submits with `method="get"`, so the query string is the state
+    of this page: there is no client-side filter state anywhere. That is what makes
+    the control set work without JavaScript and makes a filtered inventory a
+    shareable address, and it is why this is the only place the URL is read.
+  */
+  const { filters, errors, active } = parseVehicleFilters(params);
+
+  /*
+    The results are narrowed by the *server*. `listVehicles(filters)` sends the
+    filter to the API rather than filtering the returned array, so the count shown
+    is a count of what the backend matched and the grid cannot show a car the
+    server excluded.
+  */
+  const vehicles = await listVehicles(filters);
+
+  /*
+    The facet options come from the unfiltered inventory, not the filtered one.
+
+    Options filtered by the current selection would be self-defeating: choosing
+    "Diesel" would remove every other fuel from the dropdown, so the visitor could
+    not widen the search from the control they used to narrow it. Real faceted
+    search derives the option lists from the whole result set for exactly this
+    reason.
+
+    It costs a second read, and only when a filter is active - the unfiltered
+    request already holds every vehicle, so `vehicles` *is* the whole inventory
+    then. That is the same trade `getVehicleBySlug` documents: an extra read is
+    cheaper than a control that cannot undo itself. A dedicated facets endpoint is
+    the answer if this ever dominates, and it is the reason this is written as one
+    call rather than three.
+  */
+  const published = active ? await listVehicles() : vehicles;
+  const facets = toVehicleFacets(published);
+
+  /*
+    The raw submitted strings, re-read from the URL rather than from `filters`.
+    `filters` has already dropped any value the parser rejected, so rendering the
+    form from it would blank the field that carries the error message beside it -
+    the visitor would be told their year was invalid and shown an empty box. The
+    URL still holds what they typed, which is the whole point of submitting a form
+    with GET.
+  */
+  const values: Record<string, string | undefined> = {};
+  for (const key of FILTER_KEYS) {
+    const raw = params[key];
+    const value = Array.isArray(raw) ? raw[raw.length - 1] : raw;
+    if (typeof value === "string" && value.trim() !== "") values[key] = value;
+  }
 
   return (
     /*
@@ -96,15 +157,23 @@ export default async function InventoryPage() {
         starts at `h2`, so the outline is h1 > h2 with nothing skipped.
 
         Section order follows the brief and, more importantly, the order a
-        visitor needs it in: orient, learn how sourcing works, see what is
-        listed, then act. The conversion panel is last because it is the answer
-        to everything above it.
+        visitor needs it in: orient, narrow, see what matched, then act. The
+        conversion panel is last because it is the answer to everything above it -
+        and specifically the answer to a filter that matched nothing, which is
+        why the sourcing story survives the arrival of real filters.
       */}
       <InventoryHeader />
 
-      <SourcingCriteria />
+      <InventoryFilters
+        facets={facets}
+        values={values}
+        errors={errors}
+        resultCount={vehicles.length}
+        publishedCount={published.length}
+        active={active}
+      />
 
-      <VehicleGrid vehicles={vehicles} />
+      <VehicleGrid vehicles={vehicles} filtered={active} filters={filters} />
 
       <InventoryCta />
     </div>

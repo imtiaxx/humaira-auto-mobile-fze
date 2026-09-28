@@ -313,7 +313,7 @@ real business requirements before being frozen into migration history.
 | `Customer` | Buyer profile, contact and destination preferences | 1-to-1 with `User` for account holders |
 | `Vehicle` | Aggregate root for a unit in stock | **Implemented.** Owns images; features are JSONB |
 | `VehicleImage` | Ordered media, position 0 is primary | **Implemented.** Many per `Vehicle` |
-| `VehicleFeature` | Key/value specification set | **Not implemented.** Currently JSONB on `vehicles`; promote when filtering is needed |
+| `VehicleFeature` | Key/value specification set | **Not implemented.** Currently JSONB on `vehicles`; promote when filtering *by specification* is needed |
 | `VehicleInquiry` | Enquiry about a specific vehicle | → `Vehicle`, → `Lead` |
 | `SavedVehicle` | Customer's shortlist | Many per `Customer`/`User` |
 | `VehicleComparison` | Side-by-side selection | → multiple `Vehicle` |

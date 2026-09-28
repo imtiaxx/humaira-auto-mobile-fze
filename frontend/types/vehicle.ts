@@ -167,23 +167,26 @@ export interface Vehicle {
 }
 
 /**
- * The filter contract for when inventory is published.
+ * The filter contract, and the dimensions the control filters on.
  *
- * ---------------------------------------------------------------------------
- * Declared now, deliberately unused
- * ---------------------------------------------------------------------------
  * These are exactly the dimensions `docs/architecture.md` names as indexed
  * columns - make, body type, fuel, transmission, price range, year range - plus
- * the free-text make/model search. Writing the interface down now means the
- * query string shape is decided before any control exists, and it is a
- * type-only declaration, so it costs nothing at runtime.
+ * the free-text make/model search.
  *
- * There is **no filtering UI on the page**, and that is the important part.
- * With zero vehicles published, a search box or a set of dropdowns can only
- * either do nothing or filter an empty list, and a control that looks functional
- * and is not is worse than no control at all: it teaches a visitor the site is
- * broken. The interface exists so that the first real inventory has somewhere
- * to plug in, not so an empty page can pretend to be a catalogue.
+ * The interface was written down before any control existed, so the query string
+ * shape would be settled by something that could not change it, and it is
+ * type-only, so it cost nothing at runtime. It was also, for a while,
+ * deliberately unused: with zero vehicles published, a search box or a set of
+ * dropdowns could only do nothing or filter an empty list, and a control that
+ * looks functional and is not teaches a visitor the site is broken.
+ *
+ * That condition is gone. `/inventory` parses the query string into this
+ * interface in `features/vehicles/lib/filters.ts` and sends it to
+ * `GET /api/v1/vehicles`; the field names below are the domain spelling of the
+ * wire names documented in `docs/api.md`. The declaration and the control are
+ * pinned together by that module's tests, so the two cannot drift - a filter the
+ * API accepts but this interface omits would be a control with no way to
+ * represent the state it produces.
  */
 export interface VehicleFilters {
   /** Free text matched against make and model. */

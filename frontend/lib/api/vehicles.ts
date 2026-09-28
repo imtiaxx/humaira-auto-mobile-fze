@@ -103,6 +103,44 @@ export interface VehicleRecord {
 }
 
 /**
+ * The filter parameters `GET /vehicles` accepts, in the wire's own vocabulary.
+ *
+ * ---------------------------------------------------------------------------
+ * Why these are separate from the domain `VehicleFilters`
+ * ---------------------------------------------------------------------------
+ * The domain type in `types/vehicle.ts` is camelCase because the renderer reads
+ * camelCase. This is snake_case because the query string is an API artefact: it
+ * is what a visitor's address bar holds, what gets pasted into a message, and
+ * what `docs/api.md` documents. Translating here means the one place that knows
+ * the wire names does the translating, and the page never spells `body_type`.
+ *
+ * The names are `body_type`, `min_price` and friends rather than something
+ * friendlier because they are the documented query-string contract, and a
+ * visitor who edits the URL by hand is holding the same string the API documents.
+ * Inventing a second, prettier vocabulary for the URL would mean the address bar
+ * and the API reference disagreed, which is the exact class of drift this file
+ * exists to prevent.
+ *
+ * `status` is `string` and not `VehicleStatus` for the same reason `currency` is
+ * one above: this is a value arriving over a network, and the guarantee is made
+ * in `vehicle-schema.ts` rather than asserted here.
+ */
+export interface VehicleFilterParams {
+  /** Free text, matched as a substring of make or model. */
+  query?: string;
+  make?: string;
+  body_type?: string;
+  fuel?: string;
+  transmission?: string;
+  /** Inclusive bounds, in USD. */
+  min_price?: number;
+  max_price?: number;
+  min_year?: number;
+  max_year?: number;
+  status?: string;
+}
+
+/**
  * One page of vehicles.
  *
  * Returns the whole `Page<T>` envelope rather than a bare array, because the
@@ -111,15 +149,34 @@ export interface VehicleRecord {
  * caps a page at 100 rows (`MAX_PAGE_SIZE`), so a real inventory *will*
  * eventually exceed one page, and the seam is the only place that can carry
  * that fact forward without a rewrite.
+ *
+ * `filters` is a second argument rather than being folded into `PageParams` on
+ * purpose. Pagination and filtering answer different questions, and one call to
+ * this function is always exactly one of "page N" or "everything matching this
+ * filter" - a caller that passed a filter and forgot to think about paging
+ * should get the first page of matches and discover the rest from `total`, not
+ * silently accumulate them.
+ *
+ * Both arguments are spread for the reason given on `PageParams` below: neither
+ * interface has an index signature, and neither should grow one.
  */
 export function getVehiclePage(
   params: PageParams = {},
+  filters: VehicleFilterParams = {},
 ): Promise<Page<VehicleRecord>> {
   // Spread rather than passed directly: `PageParams` is a plain interface with no
   // index signature, so it is not assignable to the client's `Record<string, ...>`
   // query type. The spread produces a fresh object literal, which is - and it
   // keeps `PageParams` free of an index signature it does not need.
-  return apiGet<Page<VehicleRecord>>("/vehicles", { query: { ...params } });
+  //
+  // `buildQuery` in `client.ts` drops `undefined`, `null` and `""`, so an unset
+  // filter and a cleared one both vanish from the URL rather than appearing as
+  // `make=`. That is the same normalisation the backend applies, so a submitted
+  // empty control and an absent parameter are indistinguishable - which is
+  // correct, because they mean the same thing.
+  return apiGet<Page<VehicleRecord>>("/vehicles", {
+    query: { ...params, ...filters },
+  });
 }
 
 /**
