@@ -109,6 +109,8 @@ app/
 │   └── [vehicleSlug]/     one vehicle in full
 │       ├── page.tsx
 │       └── not-found.tsx  vehicle-specific 404 for an unknown slug
+├── brands/               brand directory (customer-facing)
+│   └── page.tsx
 ├── system/design/        design-system showcase (developer-facing)
 │   └── page.tsx
 └── system-status/        live diagnostic page
@@ -122,11 +124,28 @@ and path - the primary nav item is `label: "Inventory"`, and the footer's
 "Vehicles" *group* contains an "Inventory" entry pointing at the same path. The
 route follows the config rather than introducing a second URL for one page.
 
+`/brands` follows the same rule for the same reason, and is not `/makes`: the
+config declares `label: "Brands"` with `path: "/brands"` in the primary nav and
+again in the footer's "Vehicles" group, and the site's own word for the
+collection is "brands" throughout. Both nav items moved from `status: "planned"`
+to `status: "live"` in the same commit that added the route, which is the
+one-word promotion `navigation/config.ts` documents and which the generated
+`Route` union checks at compile time.
+
+The brand directory is rendered from the same `listVehicles()` call as the
+inventory, narrowed to a projection rather than a second query: `brands.ts`
+groups published rows by make. It adds no endpoint, no table and no request
+parameter, so an option can never appear that the inventory endpoint cannot
+satisfy and a recorded make cannot be unreachable - the same property the facets
+rely on, for the same reason. Each make links to `/inventory?make=…`, reusing the
+filter contract rather than introducing a second vehicle listing, so a car cannot
+be rendered under different rules on the directory than on the inventory.
+
 It renders from `features/vehicles/`, whose data flows from a single function,
-`listVehicles()`. That function currently returns an empty array, so the page
-renders a designed empty state; when the `Vehicle` schema in section 5 is agreed
-it becomes the one place that changes. `types/vehicle.ts` mirrors that planned
-schema so the frontend shape and the database shape cannot drift.
+`listVehicles()`. That function now returns the published rows, so the page
+renders real vehicles; when nothing is published - or when a filter matches
+nothing - it renders a designed empty state instead. `types/vehicle.ts` mirrors
+the `Vehicle` schema so the frontend shape and the database shape cannot drift.
 
 ### Vehicle detail
 

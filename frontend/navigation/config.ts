@@ -93,10 +93,15 @@ export const PRIMARY_NAV: NavItem[] = [
     href: "/inventory",
   },
   {
+    // Step 14: promoted from `planned` to `live`, on the same terms as Inventory
+    // above. `/brands` is a real route now (`app/(marketing)/brands/page.tsx`), so
+    // this is a real link and the `Route` type has verified the path exists. The
+    // label is unchanged for the same reason: "Brands" is the name this site uses
+    // in both the header and the footer, and the page follows the config rather
+    // than renaming the destination to match a route.
     label: "Brands",
-    status: "planned",
-    path: "/brands",
-    note: "Brand directory is not built yet",
+    status: "live",
+    href: "/brands",
   },
   {
     label: "Compare Cars",
@@ -155,7 +160,11 @@ export const FOOTER_NAV: NavGroup[] = [
       // Step 7: promoted to `live` alongside the primary nav item, so the
       // header and this group resolve to the same real route.
       { label: "Inventory", status: "live", href: "/inventory" },
-      { label: "Brands", status: "planned", path: "/brands", note: "Not built yet" },
+      // Step 14: promoted alongside the primary nav item, same reason. Left in
+      // the Vehicles group rather than a new "Brands" group, because the group
+      // is titled for the section and this is another view of the same stock -
+      // splitting it out would suggest a separate area of the site.
+      { label: "Brands", status: "live", href: "/brands" },
       { label: "Compare Cars", status: "planned", path: "/compare", note: "Not built yet" },
     ],
   },
