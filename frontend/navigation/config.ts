@@ -104,10 +104,20 @@ export const PRIMARY_NAV: NavItem[] = [
     href: "/brands",
   },
   {
+    // Step 15: promoted from `planned` to `live`, on the same terms as Inventory
+    // and Brands above. `/compare` is a real route now
+    // (`app/(marketing)/compare/page.tsx`), and moving `path` to `href` is what
+    // makes the `Route` type check the path against the app directory - a typo
+    // here is a build failure rather than a 404.
+    //
+    // The label is unchanged. "Compare Cars" is the vocabulary the rest of the IA
+    // already uses, and the page follows the config rather than the config being
+    // renamed after the page. The nav item is a link, not a control: choosing
+    // vehicles is a decision made on the destination page, because a comparison
+    // held in nav state could not be shared or bookmarked.
     label: "Compare Cars",
-    status: "planned",
-    path: "/compare",
-    note: "Vehicle comparison is not built yet",
+    status: "live",
+    href: "/compare",
   },
   {
     label: "Export Worldwide",
@@ -165,7 +175,10 @@ export const FOOTER_NAV: NavGroup[] = [
       // is titled for the section and this is another view of the same stock -
       // splitting it out would suggest a separate area of the site.
       { label: "Brands", status: "live", href: "/brands" },
-      { label: "Compare Cars", status: "planned", path: "/compare", note: "Not built yet" },
+        // Step 15: promoted alongside the primary nav item, same reason. Left in
+        // the Vehicles group because the group is titled for the section and a
+        // comparison is a view of the same stock, not a separate area of the site.
+        { label: "Compare Cars", status: "live", href: "/compare" },
     ],
   },
   {

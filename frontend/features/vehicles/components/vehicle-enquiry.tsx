@@ -51,10 +51,17 @@ import type { Vehicle } from "@/types/vehicle";
  * The secondary path is a real destination
  * ---------------------------------------------------------------------------
  * "Looking for something else?" points at `/inventory`, which exists. It
- * deliberately does not point at any of the `planned` navigation entries
- * ("Request a Vehicle", "Compare Cars", "Contact") - none of those routes are
- * built, and this is the one place on the page where a visitor is most likely to
- * follow a link, so a dead end here would be the most visible one on the site.
+ * deliberately does not point at the still-`planned` navigation entries
+ * ("Request a Vehicle", "Contact") - those routes are not built, and this is the
+ * one place on the page where a visitor is most likely to follow a link, so a
+ * dead end here would be the most visible one on the site.
+ *
+ * It also does not point at `/compare`. A comparison is a decision about *several*
+ * vehicles, and this panel belongs to one vehicle: linking to a page that asks
+ * the visitor to choose two to four cars, from the middle of a panel about this
+ * one, would answer a question they did not ask. The route is reachable from the
+ * header and the footer on every page, which is where a cross-cutting action
+ * belongs.
  *
  * When a real request route is built it can be added here alongside this link
  * rather than replacing it.

@@ -743,6 +743,11 @@ The following do not exist, and no frontend code depends on them:
 /api/v1/quotes                      quotations                (staff)
 ```
 
+`/compare` is listed here because this document describes the API surface, and it
+has no counterpart: the public `/compare` page is a frontend projection over
+`GET /api/v1/vehicles`, resolving the selected slugs against the one list response
+it already fetches for its picker. No frontend code calls an endpoint by that name.
+
 Filtering on the public list is **implemented** and documented under
 `GET /api/v1/vehicles`: `query`, `make`, `body_type`, `fuel`, `transmission`,
 `min_price`, `max_price`, `min_year`, `max_year` and `status`, combined with

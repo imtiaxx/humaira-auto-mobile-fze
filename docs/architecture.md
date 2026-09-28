@@ -111,6 +111,8 @@ app/
 │       └── not-found.tsx  vehicle-specific 404 for an unknown slug
 ├── brands/               brand directory (customer-facing)
 │   └── page.tsx
+├── compare/              side-by-side vehicle comparison (customer-facing)
+│   └── page.tsx
 ├── system/design/        design-system showcase (developer-facing)
 │   └── page.tsx
 └── system-status/        live diagnostic page
@@ -146,6 +148,38 @@ It renders from `features/vehicles/`, whose data flows from a single function,
 renders real vehicles; when nothing is published - or when a filter matches
 nothing - it renders a designed empty state instead. `types/vehicle.ts` mirrors
 the `Vehicle` schema so the frontend shape and the database shape cannot drift.
+
+### Vehicle comparison
+
+`/compare` places two to four published vehicles side by side. It is the first
+`planned` item in `navigation/config.ts` to reach `status: "live"`, and both the
+primary nav item and the footer's "Vehicles" entry were promoted in the same
+change, on the terms `/brands` documents. The label is unchanged: the config
+calls the destination "Compare Cars" in both places, and `active.test.ts` pins
+`/compare` and fails on `/compare-cars`, so the route follows the config.
+
+The selection lives in the query string - `/compare?vehicles=slug-a&vehicles=slug-b`,
+with a comma-separated form accepted too - so the page has no client state, works
+with JavaScript disabled, and a comparison is a shareable address. This is the
+`/inventory` filter contract applied to a selection rather than to a narrowing:
+the picker is a native `<form method="get">` and removing a column is a link, so
+Back undoes it.
+
+`features/vehicles/lib/compare.ts` holds the parsing, the four-vehicle cap, slug
+validation and resolution, and it is the only part with logic worth testing. It
+adds no endpoint, no table and no request parameter, for the same reason the brand
+directory adds none: the comparison is the published inventory, and
+`resolveComparison` is a `filter` over one `listVehicles()` call the page makes
+anyway. That is also why it does not call `getVehicleBySlug()` per slug, which
+would perform its own list request each time and turn four vehicles into five
+round trips.
+
+The query string is the one genuinely untrusted input in the feature, so it is
+capped and validated rather than trusted: at most four values are kept, each is
+matched against `^[a-z0-9]+(?:-[a-z0-9]+)*$` and a 120-character length cap, and
+anything refused is counted and reported on the page rather than silently dropped.
+`/api/v1/vehicles/compare` therefore remains unimplemented, and nothing depends on
+it.
 
 ### Vehicle detail
 
@@ -427,6 +461,13 @@ guard: no UUID can begin with `-`.
 **Not implemented:** `/vehicles/{slug}/inquiries`, `/vehicles/compare`,
 `/saved-vehicles`, `/export-requests`, `/quotes`. Public `/vehicles?` filtering
 *is* implemented, on the list route only.
+
+The `/compare` page is built and is a frontend projection over the list route, so
+it is listed here as an endpoint that does not exist. Nothing calls it: the page
+resolves the selection with the one `listVehicles()` read it needs for the picker
+anyway. An aggregate endpoint would add a second place that has to remember to
+exclude `archived_at IS NULL`, and a comparison that leaked a draft would leak it
+beside three real cars where nobody would notice.
 
 Two endpoint families are deliberately distinct:
 
