@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     absolute: `Vehicle Sales & Export, Dubai | ${SITE_NAME}`,
   },
   description:
-    "Humera Automobile is a Dubai-based vehicle sales and international export business. Buy from our Ras Al Khor showroom, or ask us to source and export a vehicle for you.",
+    "Humera Automobile is a Dubai-based vehicle sales and international export business. Ask us to source and export a vehicle for you.",
   // `/` is the canonical origin for the home page, and it prevents the footer and
   // header links from generating competing variants of the same page.
   alternates: { canonical: "/" },

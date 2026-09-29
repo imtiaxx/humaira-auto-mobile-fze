@@ -1,7 +1,7 @@
-import { Mail, MapPin, MessageCircle, Phone } from "@/components/icons";
+import { Mail, MessageCircle, Phone } from "@/components/icons";
 import { type ButtonSize } from "@/components/ui/button-styles";
 import { WhatsAppCta } from "@/components/cta/whatsapp-cta";
-import { CONTACT, SHOWROOM_ADDRESS_LINES } from "@/config/site";
+import { CONTACT } from "@/config/site";
 import { env } from "@/lib/env";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { cn } from "@/lib/cn";
@@ -23,7 +23,7 @@ import { cn } from "@/lib/cn";
  * JavaScript.
  */
 
-type ChannelId = "whatsapp" | "phone" | "email" | "address";
+type ChannelId = "whatsapp" | "phone" | "email";
 
 type Channel = {
   id: ChannelId;
@@ -77,16 +77,6 @@ export function resolveContactChannels(): Channel[] {
       icon: Mail,
     });
   }
-
-  // Always last, and never a link. A `maps:` deep link needs a verified,
-  // correctly formatted query for a Dubai address; guessing at coordinates is
-  // precisely the plausible-but-wrong value this project refuses to ship.
-  channels.push({
-    id: "address",
-    label: "Showroom",
-    value: SHOWROOM_ADDRESS_LINES.join(", "),
-    icon: MapPin,
-  });
 
   return channels;
 }
