@@ -180,24 +180,22 @@ export function HeroSlider({
           />
         ))}
 
-        {/* Navigation arrows */}
+        {/* Navigation arrows — full-width flex wrapper ensures left/right separation */}
         {cfg.showArrows && slides.length > 1 && (
-          <>
+          <div className="absolute inset-0 flex items-center justify-between px-4 md:px-6 pointer-events-none">
             <SlideArrowButton
               onClick={() => goToSlide((currentIndex - 1 + slides.length) % slides.length)}
               aria-label="Previous slide"
-              side="prev"
             >
-              <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+              <ArrowLeft className="h-6 w-6" aria-hidden="true" />
             </SlideArrowButton>
             <SlideArrowButton
               onClick={() => goToSlide((currentIndex + 1) % slides.length)}
               aria-label="Next slide"
-              side="next"
             >
-              <ArrowRight className="h-5 w-5" aria-hidden="true" />
+              <ArrowRight className="h-6 w-6" aria-hidden="true" />
             </SlideArrowButton>
-          </>
+          </div>
         )}
       </div>
 
@@ -306,21 +304,18 @@ function SlideArrowButton({
   children,
   onClick,
   "aria-label": ariaLabel,
-  side,
 }: {
   children: ReactNode;
   onClick: () => void;
   "aria-label": string;
-  side: "prev" | "next";
 }) {
   return (
     <Button
       type="button"
       variant="ghost"
-      size="sm"
+      size="md"
       className={cn(
-        "absolute top-1/2 -translate-y-1/2 z-10 text-white/90 hover:text-white transition-colors",
-        side === "prev" ? "left-4 md:left-6" : "right-4 md:right-6"
+        "flex h-12 w-12 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-all duration-200 hover:bg-black/50 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white pointer-events-auto"
       )}
       onClick={onClick}
       aria-label={ariaLabel}

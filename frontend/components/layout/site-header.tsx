@@ -71,10 +71,10 @@ export function SiteHeader() {
           inside keeps the `inline-flex` it needs for the mark-and-wordmark row.
         */}
         <span className="lg:hidden">
-          <BrandLink size="sm" />
+          <BrandLink size="md" logoOnly />
         </span>
         <span className="hidden lg:block">
-          <BrandLink size="md" />
+          <BrandLink size="lg" logoOnly />
         </span>
 
         {/*

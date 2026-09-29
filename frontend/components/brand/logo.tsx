@@ -4,7 +4,7 @@ import Image from "next/image";
 import { BRAND } from "@/config/site";
 import { cn } from "@/lib/cn";
 
-import LogoImage from "@/lib/images/logo.png";
+import LogoImage from "@/lib/images/logo-cropped.png";
 
 /**
  * The Humera Automobile brand treatment.
@@ -17,12 +17,9 @@ import LogoImage from "@/lib/images/logo.png";
 export type BrandSize = "sm" | "md" | "lg";
 
 const MARK_SIZES: Record<BrandSize, string> = {
-  // Header on mobile, and the footer mark.
-  sm: "size-8",
-  // Header on desktop, footer lockup.
-  md: "size-9",
-  // Reserved for a future footer or hero lockup.
-  lg: "size-12",
+  sm: "h-[57px] w-[67px]",
+  md: "h-[61px] w-[71px]",
+  lg: "h-[73px] w-[83px]",
 };
 
 const WORDMARK_SIZES: Record<BrandSize, string> = {
@@ -56,8 +53,6 @@ export function BrandMark({
       <Image
         src={LogoImage}
         alt=""
-        width={32}
-        height={32}
         className="h-full w-full object-contain"
         priority
       />
@@ -94,21 +89,15 @@ export function Brand({
 }
 
 /**
- * The brand as a home link.
- *
- * Wrapping the lockup in a link to `/` is what makes the logo clickable, which
- * is an almost universal expectation. Two details keep it accessible:
- *
- * - `aria-label` states the destination, not the appearance, so it is announced
- *   as "Humera Automobile, home" rather than reading out the initials twice.
- * - The visible wordmark is hidden from assistive technology to avoid the same
- *   text being announced twice.
+ * The brand as a home link — logo + wordmark (default) or logo only.
  */
 export function BrandLink({
   size = "md",
+  logoOnly = false,
   className,
 }: {
   size?: BrandSize;
+  logoOnly?: boolean;
   className?: string;
 }) {
   return (
@@ -117,14 +106,15 @@ export function BrandLink({
       aria-label={`${BRAND.wordmark}, home`}
       className={cn(
         "inline-flex items-center rounded-xs",
-        // A visible focus ring on a logo is required, but the default outline
-        // around a wide, mostly-empty link box looks wrong. Insetting it keeps
-        // it attached to the lockup.
         "focus-visible:outline-offset-4",
         className,
       )}
     >
-      <Brand size={size} />
+      {logoOnly ? (
+        <BrandMark size={size} />
+      ) : (
+        <Brand size={size} />
+      )}
     </Link>
   );
 }
