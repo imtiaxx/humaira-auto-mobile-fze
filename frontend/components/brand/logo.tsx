@@ -1,45 +1,28 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import { BRAND } from "@/config/site";
 import { cn } from "@/lib/cn";
 
+import LogoImage from "@/lib/images/logo.png";
+
 /**
  * The Humera Automobile brand treatment.
  *
- * ---------------------------------------------------------------------------
- * Why this is type, not an image
- * ---------------------------------------------------------------------------
- * No official logo asset exists yet, and inventing one - or pulling a
- * lookalike off the internet - would be worse than having none. A downloaded
- * mark carries someone else's copyright and is not this business's brand.
- *
- * So the wordmark is set in the site's own display face. That is a legitimate
- * interim identity rather than a placeholder: it is crisp at any density, it
- * inherits the design system's type tokens, it needs no image request, and it
- * cannot be the wrong logo.
- *
- * ---------------------------------------------------------------------------
- * How the official logo replaces it
- * ---------------------------------------------------------------------------
- * Everything about the mark is confined to `BrandMark` below: the artwork, its
- * box, and its proportions. The header and footer only ever compose
- * `<Brand />`, so dropping in the real asset means editing one component -
- * either replacing the mark's contents, or rendering an `<Image>` there. No
- * layout, header or footer change is needed, and the mark keeps its size and
- * alignment because the box is fixed by the `size` prop rather than by the
- * artwork's own dimensions.
+ * Uses the official logo asset at `lib/images/logo.png`.
+ * The mark is now an image rather than a type-based monogram.
  */
 
-/** Visual size of the mark. Controls the box, not the type. */
+/** Visual size of the mark. Controls the box, not the image. */
 export type BrandSize = "sm" | "md" | "lg";
 
 const MARK_SIZES: Record<BrandSize, string> = {
   // Header on mobile, and the footer mark.
-  sm: "size-8 text-[0.6875rem]",
+  sm: "size-8",
   // Header on desktop, footer lockup.
-  md: "size-9 text-[0.75rem]",
+  md: "size-9",
   // Reserved for a future footer or hero lockup.
-  lg: "size-12 text-base",
+  lg: "size-12",
 };
 
 const WORDMARK_SIZES: Record<BrandSize, string> = {
@@ -49,25 +32,10 @@ const WORDMARK_SIZES: Record<BrandSize, string> = {
 };
 
 /**
- * The mark itself: a bordered monogram tile.
+ * The mark itself: the official logo image.
  *
- * Square rather than round, `rounded-xs` rather than a pill, and outlined in the
- * brass accent. That is the design system's angular, low-radius language applied
- * at the smallest scale, so the mark reads as part of the same system as the
- * buttons around it.
- *
- * The accent is a border, not a fill. A filled brass tile at this size would put
- * the strongest colour in the system on the least important element.
- *
- * Step 6: the monogram's colour was `text-accent-600 dark:text-accent-400` - a
- * `dark:` variant, which is the one part of this design system that was not
- * token-driven. It happened to be right in the header, and wrong twice over in
- * the deep-surface footer: on near-black `accent-600` measures 4.50:1, which is
- * exactly at the AA threshold for the 12px type it carries and therefore has no
- * margin at all, and the `dark:` variant cannot see that the footer is dark
- * because the OS is not. `text-fg-accent` follows the semantic layer instead, so
- * one class now serves the light header, the deep footer, and the light *and*
- * dark schemes - four combinations from one token.
+ * Square box with the logo centered inside. The image scales to fill
+ * the box while preserving its aspect ratio.
  */
 export function BrandMark({
   size = "md",
@@ -78,16 +46,21 @@ export function BrandMark({
 }) {
   return (
     <span
-      // Decorative: the wordmark beside it already names the business, so this
-      // must not be announced as a second, redundant label.
       aria-hidden="true"
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-xs border border-accent-500/60 font-display font-semibold leading-none tracking-[0.06em] text-fg-accent",
+        "inline-flex shrink-0 items-center justify-center rounded-xs",
         MARK_SIZES[size],
         className,
       )}
     >
-      {BRAND.initials}
+      <Image
+        src={LogoImage}
+        alt=""
+        width={32}
+        height={32}
+        className="h-full w-full object-contain"
+        priority
+      />
     </span>
   );
 }
