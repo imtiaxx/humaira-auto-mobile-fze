@@ -1,7 +1,7 @@
 import { WhatsAppCta } from "@/components/cta/whatsapp-cta";
 import { Container } from "@/components/ui/container";
 import { actionClasses } from "@/components/ui/action-link";
-import { HeroVisual } from "@/features/home/components/hero-visual";
+import { HeroSlider } from "@/features/home/components/hero-slider";
 import { SHOWROOM_ADDRESS_ONE_LINE } from "@/config/site";
 
 /**
@@ -230,27 +230,14 @@ export function Hero() {
             </p>
           </div>
 
-          {/*
-            The artwork column.
-
-            It is placed after the copy in the DOM *and* in the visual order on
-            every breakpoint, which is the point: on a phone the CTA row must
-            come before a decorative element pushes it toward the fold. No
-            `order-*` anywhere, so what a screen reader and a sighted visitor
-            read are the same sequence.
-
-            `max-w` plus `mx-auto` keeps a 520-unit square from becoming an
-            oversized block on a wide desktop, and the wrapper clips, so nothing
-            can produce horizontal overflow.
-
-            Step 6: the left hairline is `lg:` only. Below 1024px the two
-            columns stack and a rule between them would be a line drawn across
-            empty space, so the divider appears at exactly the breakpoint where
-            there is something for it to divide.
-          */}
-          <div className="mx-auto w-full max-w-[26rem] lg:col-span-5 lg:max-w-none lg:border-l lg:border-line lg:pl-12">
-            <HeroVisual className="w-full" />
-          </div>
+{/*
+             The hero slider column — replaces the static SVG artwork with a
+             professional image carousel. On mobile it stacks below the copy;
+             on lg+ it sits alongside it with a hairline divider.
+           */}
+           <div className="mx-auto w-full max-w-[26rem] lg:col-span-5 lg:max-w-none lg:border-l lg:border-line lg:pl-12">
+             <HeroSlider className="h-full" />
+           </div>
         </div>
       </Container>
     </section>
