@@ -19,10 +19,12 @@ Implemented entities:
   :mod:`app.db.models.staff_session`.
 - ``Vehicle`` / ``VehicleImage`` - public inventory. See
   :mod:`app.db.models.vehicle`.
+- ``Enquiry`` - customer enquiries about vehicles. See
+  :mod:`app.db.models.enquiry`.
 
 Planned entities - deliberately **not** defined yet, so that their schema can
 be reviewed against real business requirements before it is frozen into a
-migration history: Customer, VehicleInquiry, SavedVehicle, VehicleComparison,
+migration history: Customer, SavedVehicle, VehicleComparison,
 ExportRequest, Quote, Lead, Notification, AuditLog. `VehicleFeature` is also
 not a table - see the note in :mod:`app.db.models.vehicle` on why features are a
 column rather than a table.
@@ -31,12 +33,13 @@ column rather than a table.
 from __future__ import annotations
 
 from app.db.base import Base
+from app.db.models.enquiry import Enquiry
 from app.db.models.staff_session import StaffSession
 from app.db.models.user import User
 from app.db.models.vehicle import Vehicle, VehicleImage
 
 #: Every mapped class, exported for convenient imports and test collection.
-ALL_MODELS: tuple[type[Base], ...] = (User, StaffSession, Vehicle, VehicleImage)
+ALL_MODELS: tuple[type[Base], ...] = (User, StaffSession, Vehicle, VehicleImage, Enquiry)
 
 
 def import_models() -> tuple[type[Base], ...]:

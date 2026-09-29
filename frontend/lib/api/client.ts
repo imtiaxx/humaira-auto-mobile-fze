@@ -114,6 +114,10 @@ async function toApiError(response: Response): Promise<ApiError> {
       code: body.error.code,
       requestId: body.error.request_id ?? requestId,
       message: body.error.message,
+      // Carried so a caller can map a 422 back onto the control that caused it.
+      // The staff forms already do this for the domain errors they raise; the
+      // public enquiry form needs it for Pydantic's field list.
+      details: body.error.details,
     });
   }
 

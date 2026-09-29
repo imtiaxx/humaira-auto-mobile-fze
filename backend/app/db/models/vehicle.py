@@ -48,7 +48,7 @@ import re
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from sqlalchemy import (
     JSON,
@@ -66,6 +66,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from app.db.models.enquiry import Enquiry
 
 #: The only currency customer-facing vehicle prices may be quoted in.
 SUPPORTED_VEHICLE_CURRENCY: Literal["USD"] = "USD"
@@ -342,6 +345,28 @@ class Vehicle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         # problem, and an implicit lazy load inside async SQLAlchemy raises.
         lazy="selectin",
         order_by="VehicleImage.position",
+    )
+
+    #: Enquiries submitted about this vehicle. `lazy="raise"` rather than a
+    #: default lazy load: nothing on a public page reads it, so a load would be
+    #: an accidental N+1, and the relationship is only ever traversed by code
+    #: that asks for it explicitly. `Enquiry` is imported for typing only -
+    #: `app.db.models.enquiry` imports this module, so importing it here at
+    #: runtime would be circular. SQLAlchemy resolves the annotation by name.
+    #:
+    #: The `order_by` stays a string, unlike the annotation above it, and the
+    #: difference is deliberate. An annotation is never evaluated at runtime
+    #: because of `from __future__ import annotations`, so it can name a
+    #: type-only import directly. `order_by` is an ordinary call argument
+    #: evaluated while this class body executes, before any deferred import could
+    #: have supplied the name - `Enquiry.created_at.desc()` here is a `NameError`
+    #: on `import app.db.models.vehicle`.
+    enquiries: Mapped[list[Enquiry]] = relationship(
+        back_populates="vehicle",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="raise",
+        order_by="Enquiry.created_at.desc()",
     )
 
     # -- Write-time invariants ------------------------------------------------

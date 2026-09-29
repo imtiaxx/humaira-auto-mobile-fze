@@ -3,11 +3,8 @@ import Link from "next/link";
 import { WhatsAppCta } from "@/components/cta/whatsapp-cta";
 import { ArrowRight } from "@/components/icons";
 import { Container } from "@/components/ui/container";
-import {
-  formatVehiclePrice,
-  hasQuotedPrice,
-  vehicleTitleWithYear,
-} from "@/features/vehicles/lib/format";
+import { EnquiryForm } from "@/features/vehicles/components/enquiry-form";
+import { formatVehiclePrice, hasQuotedPrice, vehicleTitleWithYear } from "@/features/vehicles/lib/format";
 import type { Vehicle } from "@/types/vehicle";
 
 /**
@@ -74,7 +71,13 @@ export function VehicleEnquiry({ vehicle }: { vehicle: Vehicle }) {
   return (
     <section aria-labelledby="vehicle-enquiry-heading" className="on-inverse bg-page">
       <Container className="py-16 sm:py-20">
-        <div className="flex flex-col gap-6 rounded-card border border-line bg-page p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+        {/*
+          A grid, and the reason the copy is wrapped in a column of its own is the
+          reason for the grid: the WhatsApp button is a natural fit next to a
+          paragraph of copy in a flex row, and the form is not. See the note at the
+          form for the full argument.
+        */}
+        <div className="grid gap-8 rounded-card border border-line bg-page p-6 sm:p-8 lg:grid-cols-2 lg:gap-10">
           <div className="flex max-w-2xl flex-col gap-2">
             <h2 id="vehicle-enquiry-heading" className="text-h2 text-fg text-balance">
               {sold ? "Looking for a similar vehicle?" : "Enquire about this vehicle"}
@@ -134,6 +137,33 @@ export function VehicleEnquiry({ vehicle }: { vehicle: Vehicle }) {
             size="lg"
             className="shrink-0 self-start lg:self-center"
           />
+
+          {/*
+            The website form, in its own column beside the copy and the CTA.
+
+            ---------------------------------------------------------------------------
+            Why a column and not a third item in a flex row
+            ---------------------------------------------------------------------------
+            The form is four fields, and the panel is a flex row whose other two
+            children are a paragraph and a button. Squeezing all three onto one
+            line at `lg` gives the form roughly 200px, which is narrower than a
+            mobile phone input and produces a message textarea two characters wide
+            on a desktop. A two-column grid gives each half the width it needs and
+            stacks them below `lg`, which is the right order: the copy first, then
+            the WhatsApp button, then the form - so a visitor who wants the fastest
+            route to a human sees it above the form they have to fill in.
+
+            ---------------------------------------------------------------------------
+            Why the vehicle is not a field
+            ---------------------------------------------------------------------------
+            `slug` is passed as a prop and bound into the Server Action, so there is
+            no hidden input naming the vehicle. That is not tidiness. The backend's
+            `EnquiryWrite` is `extra="forbid"` and takes the vehicle from the path,
+            so posting `vehicle_id` or `vehicle_slug` as form fields would be a
+            422 - and were they accepted, they would be a way for a visitor to file
+            an enquiry about a car this page is not about.
+          */}
+          <EnquiryForm slug={vehicle.slug} vehicleName={reference} />
         </div>
 
         {/*

@@ -30,6 +30,17 @@ export interface ApiErrorOptions {
   code?: string;
   /** Backend correlation ID - quote this in support requests. */
   requestId?: string;
+  /**
+   * The backend's `error.details`, when it sent any.
+   *
+   * Carried through untyped because the shape is per-error: a `422` puts
+   * Pydantic's field list there, and a domain error puts prose. The one caller
+   * that cares - the public enquiry form, which maps validation failures back
+   * onto the control that caused them - narrows it itself, and a second type
+   * hierarchy for error bodies would be more machinery than the one consumer
+   * justifies.
+   */
+  details?: unknown;
   cause?: unknown;
 }
 
@@ -38,6 +49,7 @@ export class ApiError extends Error {
   readonly status: number | undefined;
   readonly code: string | undefined;
   readonly requestId: string | undefined;
+  readonly details: unknown;
 
   constructor(options: ApiErrorOptions) {
     super(options.message, { cause: options.cause });
@@ -46,6 +58,7 @@ export class ApiError extends Error {
     this.status = options.status;
     this.code = options.code;
     this.requestId = options.requestId;
+    this.details = options.details;
   }
 
   /** True when retrying the same request could plausibly succeed. */

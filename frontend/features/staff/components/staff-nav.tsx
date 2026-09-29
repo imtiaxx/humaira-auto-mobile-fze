@@ -4,7 +4,7 @@ import type { Route } from "next";
 import { signOutAction } from "@/app/staff/actions/auth";
 import { Container } from "@/components/ui/container";
 import { buttonClasses } from "@/components/ui/button-styles";
-import { STAFF_HOME, STAFF_VEHICLES } from "@/features/staff/lib/routes";
+import { STAFF_ENQUIRIES, STAFF_HOME, STAFF_VEHICLES } from "@/features/staff/lib/routes";
 import type { StaffUser } from "@/types/staff";
 
 /**
@@ -46,6 +46,14 @@ export function StaffNav({ staff }: { staff: StaffUser }) {
           <nav aria-label="Staff sections" className="flex items-center gap-4">
             <StaffNavLink href={STAFF_HOME}>Dashboard</StaffNavLink>
             <StaffNavLink href={STAFF_VEHICLES}>Vehicles</StaffNavLink>
+            {/*
+              Enquiries is its own section rather than a tab inside Vehicles. The
+              backlog is the work - a visitor waiting to hear back about a car - and
+              it is worked on independently of any one vehicle, so a member of
+              staff answering an email should not have to go and find which car it
+              was about first.
+            */}
+            <StaffNavLink href={STAFF_ENQUIRIES}>Enquiries</StaffNavLink>
           </nav>
         </div>
 

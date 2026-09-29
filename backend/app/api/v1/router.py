@@ -15,7 +15,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import admin_images, admin_vehicles, auth, health, vehicles
+from app.api.v1.endpoints import (
+    admin_images,
+    admin_vehicles,
+    auth,
+    enquiries,
+    health,
+    staff_enquiries,
+    vehicles,
+)
 
 api_router = APIRouter()
 # The health router already declares its own `/health` path.
@@ -29,3 +37,7 @@ api_router.include_router(vehicles.router)
 api_router.include_router(auth.router)
 api_router.include_router(admin_vehicles.router)
 api_router.include_router(admin_images.router)
+# Public enquiry submission - any visitor can submit an enquiry about a vehicle.
+api_router.include_router(enquiries.router)
+# Staff enquiry management - protected by CurrentStaff.
+api_router.include_router(staff_enquiries.router)

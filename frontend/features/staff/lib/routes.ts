@@ -35,6 +35,9 @@ export const STAFF_LOGIN = "/staff/login";
 /** The vehicle list, including archived vehicles. */
 export const STAFF_VEHICLES = "/staff/vehicles";
 
+/** The enquiry list for staff management. */
+export const STAFF_ENQUIRIES = "/staff/enquiries";
+
 /** The "add a vehicle" form. */
 export const STAFF_NEW_VEHICLE = "/staff/vehicles/new";
 
