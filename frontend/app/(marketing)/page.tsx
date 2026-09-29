@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Hero } from "@/features/home/components/hero";
+import { WelcomeSection } from "@/features/home/components/welcome-section";
 import { ServiceHighlights } from "@/features/home/components/service-highlights";
 import { SITE_NAME } from "@/config/site";
 
@@ -58,10 +59,12 @@ export default function HomePage() {
     <>
       {/*
         The hero owns the page's only `h1`. Nothing below it may introduce
-        another one - `ServiceHighlights` starts at `h2`, so the outline is
-        h1 > h2 > h3 with nothing skipped.
+        another one - `WelcomeSection` and `ServiceHighlights` start at `h2`,
+        so the outline is h1 > h2 > h3 with nothing skipped.
       */}
       <Hero />
+
+      <WelcomeSection />
 
       <ServiceHighlights />
     </>

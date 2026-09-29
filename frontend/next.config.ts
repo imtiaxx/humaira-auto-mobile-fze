@@ -54,18 +54,12 @@ const apiOrigin = process.env.NEXT_PUBLIC_API_URL;
  * is the option that is actually permissive.
  */
 function remotePatterns(): NonNullable<NextConfig["images"]>["remotePatterns"] {
-  if (apiOrigin === undefined || apiOrigin === "") {
-    // Deliberately empty rather than permissive. Without the variable there is no
-    // origin to allow, and the honest result is a build or a runtime error naming
-    // `NEXT_PUBLIC_API_URL` - which is findable. Defaulting to "*" here would make
-    // the app work and quietly remove the only protection the optimizer has.
-    return [];
-  }
+  const patterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [];
 
-  const url = new URL(apiOrigin);
-
-  return [
-    {
+  // Backend API images (from NEXT_PUBLIC_API_URL)
+  if (apiOrigin !== undefined && apiOrigin !== "") {
+    const url = new URL(apiOrigin);
+    patterns.push({
       protocol: url.protocol.replace(":", "") as "http" | "https",
       hostname: url.hostname,
       port: url.port,
@@ -73,8 +67,17 @@ function remotePatterns(): NonNullable<NextConfig["images"]>["remotePatterns"] {
       // origin is an image, and narrowing the path keeps a misconfigured
       // `src` elsewhere on the same host from being fetched and optimised.
       pathname: "/media/**",
-    },
-  ];
+    });
+  }
+
+  // Unsplash placeholder images for welcome section (development only)
+  patterns.push({
+    protocol: "https",
+    hostname: "images.unsplash.com",
+    pathname: "/**",
+  });
+
+  return patterns;
 }
 
 /**

@@ -150,7 +150,7 @@ export function HeroSlider({
   return (
     <div
       ref={sliderRef}
-      className={cn("relative overflow-hidden rounded-2xl", className)}
+      className={cn("relative overflow-hidden", className)}
       onMouseEnter={() => cfg.pauseOnHover && setIsHovered(true)}
       onMouseLeave={() => cfg.pauseOnHover && setIsHovered(false)}
       onFocusCapture={() => cfg.pauseOnHover && setIsHovered(true)}

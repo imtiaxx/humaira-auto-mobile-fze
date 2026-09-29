@@ -93,39 +93,6 @@ export const PRIMARY_NAV: NavItem[] = [
     href: "/inventory",
   },
   {
-    // Step 14: promoted from `planned` to `live`, on the same terms as Inventory
-    // above. `/brands` is a real route now (`app/(marketing)/brands/page.tsx`), so
-    // this is a real link and the `Route` type has verified the path exists. The
-    // label is unchanged for the same reason: "Brands" is the name this site uses
-    // in both the header and the footer, and the page follows the config rather
-    // than renaming the destination to match a route.
-    label: "Brands",
-    status: "live",
-    href: "/brands",
-  },
-  {
-    // Step 15: promoted from `planned` to `live`, on the same terms as Inventory
-    // and Brands above. `/compare` is a real route now
-    // (`app/(marketing)/compare/page.tsx`), and moving `path` to `href` is what
-    // makes the `Route` type check the path against the app directory - a typo
-    // here is a build failure rather than a 404.
-    //
-    // The label is unchanged. "Compare Cars" is the vocabulary the rest of the IA
-    // already uses, and the page follows the config rather than the config being
-    // renamed after the page. The nav item is a link, not a control: choosing
-    // vehicles is a decision made on the destination page, because a comparison
-    // held in nav state could not be shared or bookmarked.
-    label: "Compare Cars",
-    status: "live",
-    href: "/compare",
-  },
-  {
-    label: "Export Worldwide",
-    status: "planned",
-    path: "/export",
-    note: "Export information is not built yet",
-  },
-  {
     label: "Sell / Source",
     status: "planned",
     path: "/sell",
