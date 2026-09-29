@@ -69,7 +69,7 @@ export function VehicleEnquiry({ vehicle }: { vehicle: Vehicle }) {
   const sold = vehicle.status === "sold";
 
   return (
-    <section aria-labelledby="vehicle-enquiry-heading" className="on-inverse bg-page">
+    <section aria-labelledby="vehicle-enquiry-heading" className="bg-page">
       <Container className="py-16 sm:py-20">
         {/*
           A grid, and the reason the copy is wrapped in a column of its own is the

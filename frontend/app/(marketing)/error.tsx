@@ -34,10 +34,23 @@ export default function AppError({
       {error.digest ? (
         <p className="font-mono text-xs text-fg-muted">Reference: {error.digest}</p>
       ) : null}
+      {/*
+        An inverted white plate - `bg-inverse` with `text-fg-inverse` - so the
+        retry action is the brightest thing on an error page. On the black
+        canvas that is the right choice: it is the one control that must be
+        findable.
+
+        The hover used to be `hover:bg-ink-800`, which was a dark grey on a light
+        theme where the plate was already dark. Here the plate is *white*, so
+        hovering to a near-black made the button vanish into the page it sits on -
+        the control disappeared precisely when it was being pointed at. It now
+        steps a step *up* the ramp instead, and the transition uses the system's
+        duration token rather than a bare `150ms`.
+      */}
       <button
         type="button"
         onClick={() => retry()}
-        className="mt-2 inline-flex items-center rounded-sm bg-inverse px-4 py-2.5 text-sm font-semibold text-fg-inverse transition-colors duration-150 hover:bg-ink-800"
+        className="mt-2 inline-flex items-center rounded-sm bg-inverse px-4 py-2.5 text-sm font-semibold text-fg-inverse transition-colors duration-[var(--duration-fast)] hover:bg-ink-200"
       >
         Try again
       </button>

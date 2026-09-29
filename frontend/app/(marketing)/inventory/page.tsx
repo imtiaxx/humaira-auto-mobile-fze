@@ -141,17 +141,20 @@ export default async function InventoryPage({
 
   return (
     /*
-      `on-inverse` opens the deep palette for this whole page. The wrapper is the
-      only thing that changed visually at page level: every `bg-page`,
-      `text-fg`, `text-fg-secondary`, `border-line` and `bg-raised` beneath it
-      resolves to its inverse value, so the sections below were already written
-      against the token layer and now read as one near-black marketplace without
-      a single new colour value being introduced.
+      `bg-page` is the near-black canvas, and it is all this wrapper needs.
+
+      This used to be `on-inverse`, which re-pointed the semantic tokens so that
+      every `bg-page` / `text-fg` / `border-line` beneath it resolved to their
+      deep values. The black + red + white re-theme moved that canvas from an
+      opt-in scope to the default, so the scope was removed and the same
+      components now read as one near-black marketplace without a single colour
+      class changing. The sections below were already written against the token
+      layer, which is the whole reason this page needed no edits.
 
       The header and footer live in the marketing layout, outside this wrapper,
       so they keep the treatment they have on every other public page.
     */
-    <div className="on-inverse bg-page">
+    <div className="bg-page">
       {/*
         `InventoryHeader` owns the page's only `h1`. Every section below it
         starts at `h2`, so the outline is h1 > h2 with nothing skipped.

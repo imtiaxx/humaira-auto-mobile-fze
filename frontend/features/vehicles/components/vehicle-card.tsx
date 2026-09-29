@@ -81,11 +81,11 @@ import type { Vehicle } from "@/types/vehicle";
  * ---------------------------------------------------------------------------
  * Colour
  * ---------------------------------------------------------------------------
- * The tile inherits the page's deep palette from the `on-inverse` scope the
- * route opens, so `bg-raised`, `text-fg` and `border-line` are already the dark
- * values here. The only accent the resting tile spends is the price chip; the
- * border turns red on hover and on `focus-within`, so the colour is a response
- * rather than a decoration on all thirteen tiles at once.
+ * The tile is already on the dark canvas - the inventory route's `bg-page`
+ * wrapper - so `bg-raised`, `text-fg` and `border-line` resolve to the near-black
+ * values without a scope. The only accent the resting tile spends is the price
+ * chip; the border and glow arrive on hover, so the red is a response rather
+ * than a decoration on every tile at once.
  *
  * ---------------------------------------------------------------------------
  * No state, no event handlers: a Server Component that ships no JavaScript.
@@ -133,6 +133,7 @@ export function VehicleCard({
   return (
     <Surface
       as="article"
+      interactive
       // `relative` establishes the containing block for the title link's stretched
       // `after` overlay, so the hit area is the card rather than the page.
       //
@@ -140,17 +141,16 @@ export function VehicleCard({
       // the photograph's zoom and the title's colour shift - which cannot be
       // expressed by styling this element alone.
       //
-      // The border is the card's rest state and the accent is its hover state,
-      // so the red arrives with the pointer rather than sitting on all thirteen
-      // tiles at once. `focus-within` mirrors it: tabbing to the card's link
-      // produces the same emphasis a hover does, which is the whole point of the
-      // stretched overlay.
-      className={cn(
-        "group relative flex w-full flex-col overflow-hidden",
-        "transition-[border-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-standard)]",
-        "hover:border-accent-600 hover:shadow-md focus-within:border-accent-600",
-        className,
-      )}
+      // `interactive` hands the hover story to `Surface`, which owns it in one
+      // place now: red border, red glow, a small lift, and the `focus-within`
+      // mirror of all three. It used to be spelled out here as
+      // `hover:border-accent-600 hover:shadow-md`, which was tuned against the
+      // old light canvas and would not have produced the right result on black.
+      //
+      // `group` is still needed and is still doing something different: it
+      // carries the photograph's zoom and the title's colour shift, which are
+      // properties of the children rather than of the card.
+      className={cn("group relative flex w-full flex-col overflow-hidden", className)}
     >
       {/*
         The image area is a fixed ratio box rather than an intrinsically-sized

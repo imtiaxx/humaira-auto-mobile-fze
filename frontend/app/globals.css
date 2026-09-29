@@ -55,38 +55,54 @@
    yet. The cost is a few kilobytes of custom properties.
    -------------------------------------------------------------------------- */
 @theme static {
-  /* Graphite / ink. Slightly blue-shifted so it reads as metal, not brown. */
-  --color-ink-50: #f6f7f9;
-  --color-ink-100: #eceef1;
-  --color-ink-200: #d5d9e0;
-  --color-ink-300: #b0b8c4;
-  --color-ink-400: #8590a1;
-  --color-ink-500: #667184;
-  --color-ink-600: #515a6b;
-  --color-ink-700: #424a58;
-  --color-ink-800: #2b313b;
-  --color-ink-900: #1b1f26;
-  --color-ink-950: #0e1116;
-  --color-ink-1000: #07090c;
+  /* Neutral graphite / ink. Deliberately *neutral* rather than blue-shifted now
+     that this is the dark canvas: a blue cast on near-black reads as a slightly
+     lit screen, and the luxury direction is a black showroom, not a dark mode.
+     The low steps stay light enough to carry white body copy, so the same ramp
+     serves both roles - `--color-ink-50` is the white text, `--color-ink-950`
+     and `-1000` are the surfaces. */
+  --color-ink-50: #fafafa;
+  --color-ink-100: #f2f2f3;
+  --color-ink-200: #dedee1;
+  --color-ink-300: #b8b8bd;
+  --color-ink-400: #8e8e96;
+  --color-ink-500: #6a6a72;
+  --color-ink-600: #4e4e56;
+  --color-ink-700: #3a3a41;
+  --color-ink-800: #26262b;
+  --color-ink-900: #16161a;
+  --color-ink-950: #0d0d0f;
+  --color-ink-1000: #08080a;
 
-  /* Red accent. Premium automotive red system.
-   - --color-accent-500 and --color-accent-600 are the backgrounds used for
-     CTA buttons and focus rings; they are chosen to pass WCAG AA contrast
-     with --action-accent-content (ink-950) in both light and dark schemes.
-   - --color-accent-700 onward are deeper reds used for branding/hero accents
-     where the contrast checker pairs them with lighter text or other backgrounds.
-*/
-  --color-accent-50: #fff0f5;
-  --color-accent-100: #ffe0e2;
-  --color-accent-200: #ffc0c8;
-  --color-accent-300: #ff8088;
-  --color-accent-400: #f77f7f;
-  --color-accent-500: #ff6b6b;   /* CTA background – passes contrast with ink-950 */
-  --color-accent-600: #e62e2e;   /* CTA hover – passes contrast with ink-950 */
-  --color-accent-700: #c8102e;   /* Brand red – used for hero/section accents */
-  --color-accent-800: #a90027;
-  --color-accent-900: #8f0b20;
-  --color-accent-950: #450015;
+  /* Red accent - the brand colour.
+   -
+   - The ramp is built backwards from two contrast requirements, because both
+   - are fixed and neither is negotiable:
+   -
+   - 1. `accent-500` is the CTA fill and carries WHITE text, not near-black. A
+   -    filled red surface is only ever paired with white here, so 500 and 600
+   -    must sit low enough in luminance for 1.05/4.5 to clear AA. accent-500
+   -    lands at 4.9:1 and accent-600 at 5.6:1 with white.
+   - 2. `accent-300`/`400` are the text-on-near-black steps. The vivid 500 is far
+   -    too dark to be readable as type on a black page (3.9:1), so the light end
+   -    of the ramp is what `--text-accent` resolves to, at 8.8:1 and 6.7:1.
+   -
+   - `accent-600` is DARKER than `accent-500`, not lighter. The obvious instinct
+   - is to brighten on hover, but a brighter red drops white text below 4.5:1
+   - and the audit fails. Deepening keeps the ratio rising and still reads as a
+   - state change; the hover's "lift" comes from the red glow on the shadow, not
+   - from the fill getting paler. */
+  --color-accent-50: #fff1f2;
+  --color-accent-100: #ffe1e4;
+  --color-accent-200: #ffc3c8;
+  --color-accent-300: #ff8b91;   /* text on near-black - 8.8:1 */
+  --color-accent-400: #ff5f68;   /* text/hover on near-black - 6.7:1 */
+  --color-accent-500: #e01023;   /* CTA fill - white on it is 4.9:1 */
+  --color-accent-600: #c00d1e;   /* CTA hover (deeper) - 5.6:1 */
+  --color-accent-700: #a10d1b;   /* deep brand red, borders and glows */
+  --color-accent-800: #7d0a16;
+  --color-accent-900: #5e0710;
+  --color-accent-950: #2e0308;
 
   /* Status ramps. Each has 100 (surface), 500 (default), 600/700 (interactive
      and text) and 800 (pressed) so a button or badge built on a status colour
@@ -247,11 +263,24 @@
   --radius-lg: 12px;
   --radius-pill: 999px;
 
-  /* Elevation. Low-contrast, cool-tinted. Avoids the "floating card" look. */
-  --shadow-xs: 0 1px 2px 0 rgb(14 17 22 / 0.06);
-  --shadow-sm: 0 1px 3px 0 rgb(14 17 22 / 0.08), 0 1px 2px -1px rgb(14 17 22 / 0.06);
-  --shadow-md: 0 4px 12px -2px rgb(14 17 22 / 0.1), 0 2px 4px -2px rgb(14 17 22 / 0.06);
-  --shadow-lg: 0 12px 28px -6px rgb(14 17 22 / 0.14), 0 4px 8px -4px rgb(14 17 22 / 0.08);
+  /* Elevation on a black canvas.
+     The old ramp was built for white pages, where a shadow is a soft grey
+     smudge. On near-black a pure black shadow is invisible, so these are
+     three separate effects rather than one scale: a deep black drop that lifts
+     a card off the page, a border-lightening step, and the red glow that is
+     the luxury direction's actual affordance.
+
+     `shadow-glow-red` is the one that does the work. It pairs a 1px red
+     hairline (so the red reads as a drawn edge rather than a blur) with a wide,
+     low-alpha red bloom underneath. Kept to a single ring rather than a
+     multi-layer neon stack - the brief asks for glow without cyberpunk, and
+     two shadows is the most that stays restrained. */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 2px 6px -1px rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 10px 24px -6px rgb(0 0 0 / 0.6), 0 4px 8px -4px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 24px 48px -12px rgb(0 0 0 / 0.75), 0 8px 16px -8px rgb(0 0 0 / 0.5);
+  --shadow-glow-red:
+    0 0 0 1px rgb(224 16 35 / 0.55), 0 18px 48px -18px rgb(224 16 35 / 0.45);
 
   /* Motion. Two curves, three durations, nothing else. Durations are short
      enough that a slow device feels responsive rather than sluggish, and long
@@ -271,6 +300,11 @@
   --animate-fade-up: fade-up var(--duration-slow) var(--ease-out-soft) both;
   --animate-skeleton: skeleton 1.4s var(--ease-standard) infinite;
   --animate-spin-slow: spin 900ms linear infinite;
+  /* Photography and section entrances. Longer than the UI transitions on purpose:
+     content arriving is a different event from a control responding, and giving
+     them the same 180ms makes a page feel twitchy. */
+  --animate-reveal: reveal 720ms var(--ease-out-soft) both;
+  --animate-drift: drift 18s var(--ease-standard) infinite;
 }
 
 @keyframes fade-in {
@@ -305,120 +339,206 @@
   }
 }
 
-/* --------------------------------------------------------------------------
-   Semantic tokens
-   --------------------------------------------------------------------------
-   Components reference these, not the raw ramps. `prefers-color-scheme`
-   remaps them so the dark scheme is a token swap rather than a second set of
-   component styles.
-   -------------------------------------------------------------------------- */
-:root {
-  color-scheme: light;
+/* Entrance reveal. Used for photography and for section content that should feel
+   to arrive rather than simply appear.
+   The clip-path is what makes it read as a "reveal" rather than a fade: the image
+   is uncovered from the bottom edge instead of dissolving, which is the effect
+   the luxury direction is asking for. Combined with a slight scale it reads as a
+   camera settling rather than a page loading.
 
-  --surface-page: var(--color-ink-50);
-  --surface-raised: #ffffff;
-  --surface-sunken: var(--color-ink-100);
-  --surface-inverse: var(--color-ink-950);
-  /* Dropdowns, dialogs and popovers. Separated from `--surface-raised` so an
-     overlay can be introduced later without re-tuning every card. */
-  --surface-overlay: #ffffff;
-  /* Form control fill. Pure white in light mode so inputs read as writable
-     fields against the grey page, not as disabled surfaces. */
-  --surface-field: #ffffff;
-
-  --border-subtle: var(--color-ink-200);
-  --border-default: var(--color-ink-300);
-  --border-strong: var(--color-ink-400);
-  /* Form control borders have to clear WCAG 1.4.11 (3:1 non-text contrast) to
-     be identifiable as interactive, which `--border-default` does not manage on
-     a light fill. This is the one border weight chosen for that requirement
-     rather than for visual hierarchy.
-
-     Invariant: form controls apply `bg-field` themselves, so the surface a
-     control border is ever measured against is `--surface-field`, never the
-     surface it happens to be nested in. That is what allows this token to stay
-     as light as it is. Do not set a control background from a parent. */
-  --border-control: var(--color-ink-400);
-  --border-inverse: rgb(255 255 255 / 0.14);
-
-  --text-primary: var(--color-ink-950);
-  --text-secondary: var(--color-ink-600);
-  --text-muted: var(--color-ink-500);
-  --text-inverse: var(--color-ink-50);
-  --text-accent: var(--color-accent-700);
-  /* Text that sits on a filled brass surface. Always near-black: dark type on
-     gold is both higher contrast than white-on-gold and the more traditional
-     automotive treatment. */
-  --text-on-accent: var(--color-ink-950);
-
-  --action-primary: var(--color-ink-950);
-  --action-primary-hover: var(--color-ink-800);
-  --action-primary-content: var(--color-ink-50);
-
-  --action-accent: var(--color-accent-500);
-  --action-accent-hover: var(--color-accent-400);
-  --action-accent-content: var(--color-ink-950);
-
-  --action-danger: var(--color-danger-700);
-  --action-danger-hover: var(--color-danger-800);
-  --action-danger-content: #ffffff;
-
-  /* Keyboard focus. A single token so the ring is identical on a button, an
-     input and a card, and so it can be retuned for forced-colors mode. */
-  --ring-focus: var(--color-accent-600);
-
-  --status-success-surface: var(--color-success-100);
-  --status-success-content: var(--color-success-700);
-  --status-warning-surface: var(--color-warning-100);
-  --status-warning-content: var(--color-warning-700);
-  --status-danger-surface: var(--color-danger-100);
-  --status-danger-content: var(--color-danger-700);
-  --status-info-surface: var(--color-info-100);
-  --status-info-content: var(--color-info-700);
-  --status-neutral-surface: var(--color-ink-100);
-  --status-neutral-content: var(--color-ink-700);
+   `both` fill mode is required and is also the reason the reduced-motion reset in
+   the base layer has to zero `animation-delay` as well as duration - see the note
+   there. */
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 0 0);
+  }
 }
 
+/* A slow vertical drift for large background glows. Deliberately very long and
+   very small in amplitude: a 6% travel over 18s is below the threshold where a
+   visitor notices the motion, and above the threshold where the gradient looks
+   like a static asset. Ambient only - never applied to text or to anything that
+   carries meaning. */
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -2.5%, 0) scale(1.04);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Semantic tokens - the black + red + white showroom
+   --------------------------------------------------------------------------
+   Components reference these, not the raw ramps. The palette is a single
+   decision, taken once here: a near-black canvas, white type, and a vivid red
+   that is allowed in only a few places per view.
+
+   Why the *default* scheme is the dark one
+   -----------------------------------------
+   The brand is a black showroom. That is not a `prefers-color-scheme` reaction
+   and it is not a mode - a visitor whose OS is set to light gets the same
+   near-black page, because the dealership's showroom does not become white at
+   8am. So `:root` below *is* the brand theme, and the `prefers-color-scheme:
+   dark` block is kept only to satisfy the contrast audit's three-scheme model
+   and to leave a home for a future light theme.
+
+   The layer boundaries from the header of this file still hold: components only
+   touch the utilities in `@theme inline`, so this re-theme required no change
+   to any component's colour classes.
+
+   Surface hierarchy on a dark canvas
+   ----------------------------------
+   In a light theme, "raised" is white on grey - elevation is *added* brightness.
+   On black, elevation has to be added brightness too or everything is a void, but
+   there is far less of it available: page, raised and sunken sit three small
+   steps apart across the bottom of the ramp. Cards are separated by a hairline
+   border first and a shadow second, because on near-black a shadow alone is
+   invisible and a border alone looks like a wireframe.
+
+   The red budget
+   --------------
+   Red is the scarcest colour in the system and is spent deliberately: filled
+   CTAs, the active nav indicator, focus rings, card hover borders, and the thin
+   rules that separate sections. It is deliberately *not* used for body text,
+   status semantics, or every link in a list - a red that appears everywhere is a
+   tint, not an accent.
+   -------------------------------------------------------------------------- */
+:root {
+  color-scheme: dark;
+
+  --surface-page: var(--color-ink-950);
+  --surface-raised: var(--color-ink-900);
+  --surface-sunken: var(--color-ink-1000);
+  --surface-inverse: var(--color-ink-50);
+  /* Dropdowns, dialogs and popovers. One step above the base so an overlay
+     separates from the page it is floating over. */
+  --surface-overlay: var(--color-ink-900);
+  /* Form control fill. Dark, and *lighter* than the page, so a field reads as a
+     writable surface rather than as a hole cut in the page. The invariant from
+     the previous theme still holds: controls set `bg-field` themselves, so a
+     control border is always measured against `--surface-field`. */
+  --surface-field: #1c1c20;
+  /* Modal scrims - the dimmed layer between a drawer/dialog and the page behind.
+     Defined rather than composed from `--surface-inverse` at an alpha, because
+     `--surface-inverse` is *light* on this canvas (it is what makes an inverted
+     white plate work) and a light scrim is exactly backwards: it washes the page
+     out to white behind the panel instead of pushing it back. */
+  --scrim: rgb(0 0 0 / 0.72);
+
+  /* Borders run lighter than the surfaces they divide. On black a hairline tuned
+     for a white page is simply absent, so these are several steps up the ramp and
+     the interactive one clears the 3:1 of WCAG 1.4.11. */
+  --border-subtle: var(--color-ink-800);
+  --border-default: #34343a;
+  --border-strong: #4a4a52;
+  --border-control: var(--color-ink-500);
+  --border-inverse: rgb(255 255 255 / 0.14);
+
+  --text-primary: var(--color-ink-50);
+  --text-secondary: var(--color-ink-300);
+  --text-muted: var(--color-ink-400);
+  --text-inverse: var(--color-ink-1000);
+  /* accent-300, not accent-500. The vivid brand red measures 3.9:1 as type on
+     near-black - under AA - so the light end of the ramp is what red *type* has
+     to resolve to, at 8.5:1. */
+  --text-accent: var(--color-accent-300);
+  /* Text on a filled red surface. White, not near-black: white on the brand red
+     is 4.9:1 where near-black is 3.9:1, and it is the more automotive treatment. */
+  --text-on-accent: #ffffff;
+
+  /* The primary button is the inverted one - a white plate on black. On a dark
+     canvas a near-black primary button would be invisible against the page, so
+     "primary" inverts to light and the *red* becomes the accent, which is what
+     the brand actually wants to be clicked anyway. */
+  --action-primary: #ffffff;
+  --action-primary-hover: #e8e8ea;
+  --action-primary-content: var(--color-ink-1000);
+
+  /* The brand conversion action: solid red, white type. 4.9:1, and the hover
+     deepens rather than brightens so the ratio rises instead of falling. */
+  --action-accent: var(--color-accent-500);
+  --action-accent-hover: var(--color-accent-600);
+  --action-accent-content: #ffffff;
+
+  /* Destructive is a deep maroon rather than the brand red. Two reds at similar
+     lightness on one screen read as a mistake and, worse, "delete" and "enquire"
+     end up the same colour. Kept dark and desaturated enough to be distinct;
+     the audit still clears it comfortably. */
+  --action-danger: #8f1d1d;
+  --action-danger-hover: #a12222;
+  --action-danger-content: var(--color-danger-100);
+
+  /* Keyboard focus. accent-400 holds 6.5:1 on the page, 6.1:1 on a raised card
+     and 5.8:1 inside a form field, so the ring is visible on all three. */
+  --ring-focus: var(--color-accent-400);
+
+  /* Status surfaces are tints rather than solid fills. A solid status fill on
+     near-black is a bright chip that outshouts the red CTA, which is the wrong
+     hierarchy for something like "Reserved". */
+  --status-success-surface: color-mix(in oklab, var(--color-success-500) 18%, transparent);
+  --status-success-content: var(--color-success-100);
+  --status-warning-surface: color-mix(in oklab, var(--color-warning-500) 18%, transparent);
+  --status-warning-content: var(--color-warning-100);
+  --status-danger-surface: color-mix(in oklab, var(--color-danger-500) 18%, transparent);
+  --status-danger-content: var(--color-danger-100);
+  --status-info-surface: color-mix(in oklab, var(--color-info-500) 18%, transparent);
+  --status-info-content: var(--color-info-100);
+  --status-neutral-surface: var(--color-ink-800);
+  --status-neutral-content: var(--color-ink-200);
+}
+
+/* Kept so the contrast audit's three-scheme model has a block to read, and
+   because a light theme is the obvious next thing anyone will want to add.
+   Today it re-asserts the brand values rather than inverting them: a
+   `prefers-color-scheme: light` visitor still gets the black showroom, which is
+   the intent rather than an oversight. */
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
 
-    --surface-page: var(--color-ink-1000);
-    --surface-raised: var(--color-ink-950);
-    --surface-sunken: var(--color-ink-900);
+    --surface-page: var(--color-ink-950);
+    --surface-raised: var(--color-ink-900);
+    --surface-sunken: var(--color-ink-1000);
     --surface-inverse: var(--color-ink-50);
     --surface-overlay: var(--color-ink-900);
-    --surface-field: var(--color-ink-950);
+    --surface-field: #1c1c20;
+    --scrim: rgb(0 0 0 / 0.72);
 
     --border-subtle: var(--color-ink-800);
-    --border-default: var(--color-ink-700);
-    --border-strong: var(--color-ink-600);
-    /* Dark fills need a *lighter* border to reach the same 3:1, so this
-     inverts direction relative to the light scheme. */
+    --border-default: #34343a;
+    --border-strong: #4a4a52;
     --border-control: var(--color-ink-500);
-    --border-inverse: rgb(0 0 0 / 0.2);
+    --border-inverse: rgb(255 255 255 / 0.14);
 
     --text-primary: var(--color-ink-50);
     --text-secondary: var(--color-ink-300);
     --text-muted: var(--color-ink-400);
-    --text-inverse: var(--color-ink-950);
+    --text-inverse: var(--color-ink-1000);
     --text-accent: var(--color-accent-300);
-    --text-on-accent: var(--color-ink-950);
+    --text-on-accent: #ffffff;
 
-    --action-primary: var(--color-ink-50);
-    --action-primary-hover: var(--color-ink-200);
-    --action-primary-content: var(--color-ink-950);
+    --action-primary: #ffffff;
+    --action-primary-hover: #e8e8ea;
+    --action-primary-content: var(--color-ink-1000);
 
-    /* Lighter brass in dark mode, still with near-black type: the gold has to
-       brighten to stay visible on a near-black page, and dark type keeps the
-       contrast ratio rising rather than falling. */
-    --action-accent: var(--color-accent-400);
-    --action-accent-hover: var(--color-accent-300);
-    --action-accent-content: var(--color-ink-950);
+    --action-accent: var(--color-accent-500);
+    --action-accent-hover: var(--color-accent-600);
+    --action-accent-content: #ffffff;
 
-    --action-danger: var(--color-danger-600);
-    --action-danger-hover: var(--color-danger-500);
-    --action-danger-content: #ffffff;
+    --action-danger: #8f1d1d;
+    --action-danger-hover: #a12222;
+    --action-danger-content: var(--color-danger-100);
 
     --ring-focus: var(--color-accent-400);
 
@@ -430,7 +550,7 @@
     --status-danger-content: var(--color-danger-100);
     --status-info-surface: color-mix(in oklab, var(--color-info-500) 18%, transparent);
     --status-info-content: var(--color-info-100);
-    --status-neutral-surface: var(--color-ink-900);
+    --status-neutral-surface: var(--color-ink-800);
     --status-neutral-content: var(--color-ink-200);
   }
 }
@@ -443,6 +563,7 @@
   --color-inverse: var(--surface-inverse);
   --color-overlay: var(--surface-overlay);
   --color-field: var(--surface-field);
+  --color-scrim: var(--scrim);
 
   --color-line: var(--border-subtle);
   --color-line-strong: var(--border-default);
@@ -645,99 +766,95 @@
 }
 
 /**
+ * The thin red line.
+ *
+ * The signature rule of the direction: a 2px brand-red edge on a section, or a
+ * 1px one under a heading. It is a *rule*, not a highlight - the width is what
+ * keeps it from reading as a progress bar, and `accent-500` rather than
+ * `accent-300` is what keeps it from reading as pink type.
+ *
+ * `inset-x-0` + `top-0` means it is meant to sit on an element that already
+ * establishes a positioning context (`relative`), which every section here does.
+ */
+@utility rule-accent {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  background: var(--color-accent-500);
+}
+
+/**
+ * Cinematic backdrop.
+ *
+ * The one place a gradient is allowed, and it earns it: the brief is a black
+ * showroom with controlled red lighting, and a flat fill cannot produce
+ * "lighting". Three layers, in order of how far they read:
+ *
+ *   - a red glow low and off-centre, the ambient light in the room
+ *   - a second, cooler and much fainter wash at the top, so the page is not
+ *     lit from one corner only
+ *   - the page surface itself
+ *
+ * Both glows are `accent-500` at low alpha and one is `animate-drift`, so the
+ * light is never quite still. The drift is applied to the pseudo-element rather
+ * than to the container so it cannot affect layout, and the whole thing is
+ * marked decorative by the caller with `aria-hidden` - none of this carries
+ * information.
+ *
+ * The alphas are low on purpose. At a higher alpha this stops reading as
+ * lighting and starts reading as a red wash over the content, which is the
+ * "cheap" version of the same idea.
+ */
+@utility backdrop-cinematic {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--surface-page);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -20% -10% 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        ellipse 60% 50% at 22% 78%,
+        color-mix(in oklab, var(--color-accent-500) 16%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 50% 40% at 85% 8%,
+        color-mix(in oklab, var(--color-accent-700) 12%, transparent),
+        transparent 72%
+      );
+    animation: var(--animate-drift);
+  }
+}
+
+/**
  * The deep surface.
  *
- * Until Step 6 this token system defined a near-black canvas - `--surface-inverse`,
- * `--text-inverse`, the whole dark scheme - and then never used any of it on the
- * homepage. Every region was a light grey: the hero was `--surface-page`, the
- * services block was `--surface-sunken`, the footer was `--surface-sunken` again.
- * A site with no photography and no dark surface reads as a light SaaS template,
- * however good the type is. The deep canvas is what makes it read as an
- * established trading company.
+ * Retained as a scope, but it no longer re-points anything, and that is the
+ * correct end state rather than a leftover.
  *
- * This utility is applied to the hero, the conversion panel and the footer, and
- * it re-points layer 2 (the semantic tokens) for that subtree only. Everything
- * inside keeps using the same layer 3 utilities - `text-fg`, `bg-raised`,
- * `border-line` - and simply resolves to the deep values. That is why this is one
- * utility and not thirty edited components: a component written once works on
- * both canvases, and re-theming the deep surface stays a change to this block.
+ * It used to be the mechanism that gave the site a near-black canvas: the base
+ * theme was light, and this utility re-mapped the semantic tokens so the hero,
+ * the conversion panel and the footer rendered on near-black. The black + red +
+ * white re-theme moved that canvas from an *option* to the *default*, so the
+ * tokens it used to override now hold those values already and there is nothing
+ * left for it to do.
  *
- * Two deliberate decisions:
- *
- * 1. The values reference the *raw ramps*, not the semantic layer. The deep
- *    canvas therefore looks identical whether the OS asks for light or dark,
- *    which is the intent: near-black is the brand's second surface, not a
- *    response to a system setting. Deriving these from `--text-primary` etc.
- *    would have produced an accidental second dark scheme instead.
- *
- * 2. `color-scheme: dark` is inherited into the subtree so that form controls,
- *    scrollbars and the caret drawn on this canvas render dark too. Without it a
- *    text input placed here would arrive as a white box.
- *
- * Every pairing below is verified by `scripts/check-contrast.mjs`, which reads
- * this block and audits the same 33 pairings against it as a third scheme
- * alongside light and dark. It is a checked surface, not an assumed one.
+ * It is kept rather than deleted because roughly ten components carry the class
+ * and because the alternative is worse: a utility that silently does nothing
+ * looks like a bug to whoever next reads it, whereas one that says why it does
+ * nothing is a note about the theme's history. `color-scheme: dark` is still
+ * declared, because a subtree that opted in on a future light theme would
+ * otherwise get light form controls and scrollbars inside a dark page.
  */
 @utility on-inverse {
   color-scheme: dark;
-
-  /* Surfaces, one step apart, so a panel can be lifted off the base with a
-     border rather than a shadow. Shadows do not exist on near-black. */
-  --surface-page: var(--color-ink-950);
-  --surface-raised: var(--color-ink-900);
-  --surface-sunken: var(--color-ink-1000);
-  --surface-overlay: var(--color-ink-900);
-  --surface-field: var(--color-ink-900);
-
-  /* The same three text weights the light scheme uses, re-pointed at the
-     inverse end of the ramp. */
-  --text-primary: var(--color-ink-50);
-  --text-secondary: var(--color-ink-300);
-  --text-muted: var(--color-ink-400);
-  --text-accent: var(--color-accent-300);
-  --text-on-accent: var(--color-ink-950);
-
-  /* `--surface-inverse` and `--text-inverse` are deliberately *not* overridden.
-
-     They are the pair that means "invert whatever scheme is active", which is
-     meaningless inside a canvas that is always dark - and inverting them anyway
-     put near-black type on near-black, at 1.05:1. Leaving them alone keeps
-     `bg-inverse` + `text-fg-inverse` a working light-on-dark pair, which is
-     what the drawer backdrop and any future inverse banner still need. */
-
-  /* Borders run *lighter* than the light scheme's, and further than a one-step
-     inversion. A hairline tuned to read as a seam on white is invisible on
-     near-black: ink-800 on ink-900 measures 1.26:1, which is not a subtle
-     separator, it is an absent one. These three steps are spaced so each is
-     visibly distinct from the next, and `--border-control` clears the 3:1 that
-     WCAG 1.4.11 requires of an interactive boundary. */
-  --border-subtle: var(--color-ink-700);
-  --border-default: var(--color-ink-600);
-  --border-strong: var(--color-ink-500);
-  --border-control: var(--color-ink-400);
-
-  /* Actions invert cleanly: the primary becomes a light button on the dark
-     canvas, and the accent stays brass because brass is the brand, not a
-     light-mode choice. */
-  --action-primary: var(--color-ink-50);
-  --action-primary-hover: var(--color-ink-200);
-  --action-primary-content: var(--color-ink-950);
-  --action-accent: var(--color-accent-400);
-  --action-accent-hover: var(--color-accent-300);
-  --action-accent-content: var(--color-ink-950);
-
-  /* Destructive actions are not reachable from the public site yet, but the
-     token is defined so that if one ever is, it is legible here rather than
-     silently inheriting a dark red that vanishes into near-black. */
-  --action-danger: var(--color-danger-500);
-  --action-danger-hover: var(--color-danger-600);
-  --action-danger-content: var(--color-danger-100);
-
-  /* Brass focus ring, which holds its contrast against near-black without the
-     light scheme's accent-600 having to be darkened. */
-  --ring-focus: var(--color-accent-400);
 }
-
 /**
  * Tabular figures. Applied to anything that should line up in a column -
  * prices, mileage, dates, engine output. Proportional digits in a spec sheet

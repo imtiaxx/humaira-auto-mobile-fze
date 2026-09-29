@@ -61,7 +61,7 @@ export function BrandDirectory({ brands }: { brands: readonly Brand[] }) {
   const total = brands.reduce((sum, brand) => sum + brand.count, 0);
 
   return (
-    <div className="on-inverse bg-page">
+    <div className="bg-page">
       <section
         aria-labelledby="brands-heading"
         className="relative overflow-hidden border-b border-line"

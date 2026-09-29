@@ -47,7 +47,7 @@ export function VehicleBreadcrumb({ vehicle }: { vehicle: Vehicle }) {
   const title = vehicleTitle(vehicle);
 
   return (
-    <div className="on-inverse bg-page">
+    <div className="bg-page">
       <Container className="py-5 sm:py-6">
         <nav aria-label="Breadcrumb">
           <ol

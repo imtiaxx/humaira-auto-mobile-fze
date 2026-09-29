@@ -39,21 +39,17 @@ export function SiteHeader() {
     <header
       className={[
         "sticky top-0 z-30",
-        // Step 6: opaque, and the translucency is gone.
-        //
-        // This bar used to be `bg-page/85 backdrop-blur-md` over a near-white
-        // page, which worked because everything under it was the same near-white.
-        // The hero is now near-black, and a translucent light bar over dark
-        // content does not soften it - it smears it, because a 15%-opacity light
-        // fill plus a blur is a fogged version of whatever passes beneath, and
-        // the headline is exactly the sort of large type that turns to mush
-        // under it.
-        //
-        // Solid also removes the glassmorphism the design direction rules out,
-        // and it is one fewer compositing layer on every scroll frame. The blur
-        // had one honest benefit - softening content sliding under the bar - and
-        // an opaque bar gets that for free by clipping it instead.
+        // Opaque, and it is now the *same* near-black as the page, with a hairline
+        // that carries the separation. The bar used to need a fill of its own to
+        // read against a light page; on the black canvas `bg-page` is a no-op
+        // colour-wise and the border is doing all the work - which is why the
+        // 1px line below is not decorative.
         "border-b border-line bg-page",
+        // A red line under the bar, and it is the one place on the site a red
+        // edge is unconditional rather than a response to the pointer. It reads as
+        // the brand's light strip and is what stops a black bar on a black page
+        // looking like a rendering failure.
+        "after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-accent-600/70",
       ].join(" ")}
     >
       <Container className="flex h-16 items-center justify-between gap-4 lg:h-20">

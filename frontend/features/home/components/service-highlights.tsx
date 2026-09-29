@@ -111,8 +111,21 @@ export function ServiceHighlights() {
       // panel below - and that alternation is what stops a page with no
       // photography from reading as one long undifferentiated block. The hairline
       // is what carries the transition; the colour change does the rest.
-      className="scroll-mt-24 overflow-hidden border-t border-line bg-sunken focus:outline-none"
+      //
+      // Superseded by the black + red + white re-theme. There is no light canvas
+      // left to breathe against, so the alternation this comment describes is
+      // gone - and with it the reason this section was `bg-sunken`. It is now
+      // `backdrop-cinematic`, the same treatment as the welcome section above it,
+      // separated by the 2px red rule rather than by a change of fill. On a
+      // monochrome page the rule is doing the work the palette used to.
+      className="backdrop-cinematic relative scroll-mt-24 overflow-hidden focus:outline-none"
     >
+      {/*
+        The thin red rule. This is the section's only colour accent, and it is
+        what gives the page a vertical rhythm now that every block shares one
+        black canvas.
+      */}
+      <span aria-hidden="true" className="rule-accent" />
       <Container className="py-16 sm:py-20 lg:py-28">
         <SectionHeading
           eyebrow="What we offer"
@@ -123,17 +136,25 @@ export function ServiceHighlights() {
         <ul className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {SERVICES.map(({ id, title, label, body, icon: Icon }) => (
             <li key={id} className="flex">
-              <Surface
-                as="article"
-                className="flex w-full flex-col gap-4 rounded-card border-line p-6"
-              >
+              {/*
+                Not `interactive`. The module docstring above explains why these
+                cards carry no hover treatment: the routes they describe are
+                `planned`, so a card that lifts and glows red on hover is
+                promising a click that 404s. They get the resting treatment only,
+                and gain `interactive` in the same commit that makes them links.
+              */}
+              <Surface as="article" className="flex w-full flex-col gap-4 rounded-card p-6">
                 {/*
-                  Step 6: the icon plate is a flat bordered square rather than a
-                  filled one. A tinted plate put four small blocks of colour in
-                  the middle of an otherwise monochrome block, which competed
-                  with the section heading for attention. Outlined, in the accent
-                  tone, it reads as a considered marker and gives each card a
-                  recognisable anchor point without adding a second colour.
+                  The icon plate. A flat bordered square rather than a filled one:
+                  a tinted plate puts four small blocks of colour in the middle of
+                  an otherwise monochrome block, which competes with the section
+                  heading for attention. Outlined, in the accent tone, it reads as
+                  a considered marker and gives each card a recognisable anchor
+                  point without adding a second colour.
+
+                  No hover state, matching the card. `text-fg-accent` resolves to
+                  `accent-300` (8.7:1 on the raised surface) rather than the raw
+                  `accent-500`, which would be 3.9:1 as type on near-black.
                 */}
                 <span
                   aria-hidden="true"
@@ -154,22 +175,24 @@ export function ServiceHighlights() {
         </ul>
 
         {/*
-          Step 6: the conversion panel moves onto the deep canvas.
+          The conversion panel - the one element on this page whose entire job is
+          to be acted on, so it is the one place a strong red fill is allowed to
+          dominate.
 
-          This is the one panel on the page whose entire job is to be acted on,
-          so it now sits on the same near-black as the hero and the brass CTA
-          gains the strongest contrast pairing available on the site. Placing it
-          at the end of the light section also gives the page a deliberate shape
-          - dark arrival, light information, dark action - rather than three
-          stacked boxes that happen to share a border.
+          It is a `Surface` rather than a bespoke panel so it inherits the same
+          border, radius and shadow as every other card on the site. It no longer
+          carries the `on-inverse` scope it was written with: with the black
+          canvas as the default, that utility does nothing, and leaving a class
+          that silently does nothing is worse than removing it.
 
-          The `on-inverse` scope does the work: the heading, the paragraph and
-          the shared `WhatsAppCta` below are unchanged code and simply resolve
-          against the deep tokens.
+          `border-accent-500/40` rather than the default hairline. A permanent
+          red-tinted edge on the single conversion panel is the correct amount of
+          red - it reads as "this is the action" without a second filled red
+          competing with the WhatsApp button inside it.
         */}
         <Surface
           as="div"
-          className="on-inverse mt-12 flex flex-col gap-6 rounded-card border-line bg-page p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10"
+          className="mt-12 flex flex-col gap-6 rounded-card border-accent-500/40 bg-raised p-6 shadow-md sm:p-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10"
         >
           <div className="flex max-w-2xl flex-col gap-2">
             <h3 className="text-h3 text-fg">Not sure which one applies?</h3>

@@ -222,16 +222,21 @@ export function MobileNav({ className }: { className?: string }) {
       >
         {/*
           Scrim. Clicking it closes the drawer (requirement 6), and it is what
-          blocks pointer interaction with the page behind. `aria-hidden` because
-          it is presentational - the Escape key and the close button are the
+          blocks pointer interaction with the page behind. `aria-hidden` because it
+          is presentational - the Escape key and the close button are the
           accessible ways out, and a scrim is neither.
+
+          `bg-scrim`, not `bg-inverse/60`. `--surface-inverse` is *light* on this
+          canvas - it is what makes an inverted white plate work - so dimming with
+          it washed the page out to white behind the panel rather than pushing it
+          back. A scrim is its own role, so it has its own token.
         */}
         <button
           type="button"
           tabIndex={-1}
           aria-hidden="true"
           onClick={close}
-          className="absolute inset-0 h-full w-full cursor-default bg-inverse/60"
+          className="absolute inset-0 h-full w-full cursor-default bg-scrim"
         />
 
         <div

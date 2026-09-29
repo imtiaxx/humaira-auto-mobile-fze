@@ -11,10 +11,9 @@ import { Container } from "@/components/ui/container";
  * the conversion: the brand's accent button, the site's largest size, and copy
  * that says what happens next rather than exhorting the visitor.
  *
- * It is the same `on-inverse` deep treatment the homepage uses for its
- * conversion panel, reused from the token layer rather than restyled. The
- * `h2` here follows the page's `h1` and the sections' `h2`s, so the outline is
- * unbroken.
+ * It carries the same near-black treatment the homepage conversion panel uses,
+ * taken from the token layer rather than restyled. The `h2` here follows the
+ * page's `h1` and the sections' `h2`s, so the outline is unbroken.
  *
  * `unavailable="disabled"` rather than the default `hidden`: this is a page
  * *about* finding a vehicle, so a missing enquiry button would read as an
@@ -28,7 +27,7 @@ import { Container } from "@/components/ui/container";
  */
 export function InventoryCta() {
   return (
-    <section aria-labelledby="inventory-cta-heading" className="on-inverse bg-page">
+    <section aria-labelledby="inventory-cta-heading" className="bg-page">
       <Container className="py-16 sm:py-20">
         {/*
           `bg-raised` rather than `bg-page`: the panel now sits inside the page's

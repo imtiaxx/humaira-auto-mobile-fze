@@ -169,8 +169,26 @@ export function HeroSlider({
         Slide {currentIndex + 1} of {slides.length}: {currentSlide.alt}
       </div>
 
-      {/* Slide container — cross-fade via CSS animation */}
-      <div className="relative aspect-[16/9] md:aspect-[21/9] lg:aspect-[2.4/1]">
+      {/*
+        Slide container.
+
+        `h-full` rather than an aspect ratio. It used to carry
+        `aspect-[16/9] md:aspect-[21/9] lg:aspect-[2.4/1]`, which sized the frame
+        from its width - correct while the component decided its own height, and
+        wrong once the hero gave it a fixed `h-[90vh]`. An aspect box inside a
+        fixed-height parent is a contradiction: the box computed a height from the
+        width, overflowed the 90vh, and the hero grew a scrollbar. The height now
+        comes from the hero and the images `object-cover` into whatever shape that
+        produces.
+
+        The consequence is that the frame's aspect ratio is now the viewport's
+        rather than a designed one. That is the right trade for a full-bleed hero:
+        `object-cover` crops rather than letterboxes, so there is never a black
+        bar inside the image, and a portrait phone gets a portrait crop of a
+        landscape photograph - which is a better result than a 16:9 box with empty
+        space either side of it.
+      */}
+      <div className="relative h-full w-full">
         {slides.map((slide, index) => (
           <HeroSlideImage
             key={slide.id}
@@ -202,7 +220,7 @@ export function HeroSlider({
       {/* Dot indicators */}
       {cfg.showDots && slides.length > 1 && (
         <div
-          className="flex items-center justify-center gap-2 mt-4"
+          className="absolute inset-x-0 bottom-6 z-20 flex items-center justify-center gap-2 md:bottom-8"
           role="tablist"
           aria-label="Slide indicators"
         >
@@ -213,13 +231,21 @@ export function HeroSlider({
               aria-selected={index === currentIndex}
               aria-label={`Go to slide ${index + 1}: ${slides[index].alt}`}
               onClick={() => goToSlide(index)}
-              className={cn(
-                "relative h-2 w-2 rounded-full transition-all duration-300",
-                index === currentIndex
-                  ? "bg-accent-500 w-6"
-                  : "bg-white/40 hover:bg-white/60"
-              )}
-            />
+              // A dot is a target, so it needs a target-sized hit area. 8px of dot
+              // in a 44px button: the visible mark stays small and the button
+              // carries the affordance.
+              className="group/dot flex size-11 items-center justify-center"
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "block h-2 rounded-full transition-all duration-[var(--duration-base)] ease-[var(--ease-standard)]",
+                  index === currentIndex
+                    ? "w-7 bg-accent-500 shadow-[0_0_12px_rgb(224_16_35/0.8)]"
+                    : "w-2 bg-fg-inverse/40 group-hover/dot:bg-fg-inverse/70",
+                )}
+              />
+            </button>
           ))}
         </div>
       )}
@@ -243,9 +269,12 @@ function HeroSlideImage({
   return (
     <div
       className={cn(
+        // The cross-fade. 500ms is slow enough to read as a dissolve rather than
+        // a cut, and `ease-out-soft` decelerates into the incoming slide so it
+        // arrives rather than stopping.
         "absolute inset-0 transition-opacity duration-500 ease-out-soft",
-        isActive ? "opacity-100" : "opacity-0 pointer-events-none",
-        prefersReducedMotion && "transition-none"
+        isActive ? "z-10 opacity-100" : "pointer-events-none z-0 opacity-0",
+        prefersReducedMotion && "transition-none",
       )}
       aria-hidden={!isActive}
     >
@@ -261,12 +290,9 @@ function HeroSlideImage({
         <SlideImage src={slide.imageUrl} alt={slide.alt} />
       )}
       {slide.ctaLabel && slide.href && (
-        <div className="absolute bottom-6 left-6 right-6 md:left-8 md:right-8">
-          <a
-            href={slide.href}
-            className="inline-flex items-center justify-center w-full md:w-auto"
-          >
-            <Button variant="accent" size="lg" className="w-full md:w-auto animate-fade-up">
+        <div className="absolute inset-x-0 bottom-20 px-6 md:bottom-24 md:left-24 md:right-auto md:px-0">
+          <a href={slide.href} className="inline-flex w-full items-center md:w-auto">
+            <Button variant="accent" size="lg" className="w-full animate-fade-up md:w-auto">
               {slide.ctaLabel}
             </Button>
           </a>
@@ -285,11 +311,19 @@ function SlideImage({ src, alt }: { src: string; alt: string }) {
     <img
       src={src}
       alt={alt}
+      // `object-cover` rather than `contain`: the frame is now the viewport's
+      // shape (see the note on the slide container), so the image has to fill it
+      // and crop. `contain` would letterbox a landscape photograph into a portrait
+      // phone and put black bars inside the hero.
       className="h-full w-full object-cover"
       loading="eager"
       fetchPriority="high"
       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 80vw"
-      // Using a placeholder blur to avoid layout shift
+      // A placeholder so the frame is never a white flash while the photograph
+      // decodes. This is a gradient of two *surfaces*, not of two hues, so it
+      // cannot shift the perceived colour of the image that replaces it - and on
+      // the black canvas it is nearly black, which is what a loading hero should
+      // look like rather than a grey box.
       style={{
         backgroundImage: `linear-gradient(135deg, var(--surface-sunken) 0%, var(--surface-raised) 100%)`,
       } as React.CSSProperties}
@@ -299,6 +333,16 @@ function SlideImage({ src, alt }: { src: string; alt: string }) {
 
 /**
  * Arrow button styled for overlay use.
+ *
+ * Sits directly on photography, so it cannot rely on a surface token for its
+ * fill: the backdrop is whatever the photograph is, and no token survives both a
+ * white sky and a black studio. It therefore uses a translucent black plate and
+ * near-white type, which is legible on every photograph, and picks up the brand
+ * red as a border on hover so it still belongs to the palette.
+ *
+ * It is a real 48px circle rather than a small chevron on a transparent hit area,
+ * because it is a touch target on a phone as well as a pointer target on a
+ * desktop.
  */
 function SlideArrowButton({
   children,
@@ -315,7 +359,12 @@ function SlideArrowButton({
       variant="ghost"
       size="md"
       className={cn(
-        "flex h-12 w-12 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-all duration-200 hover:bg-black/50 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white pointer-events-auto"
+        "pointer-events-auto flex size-12 items-center justify-center rounded-full",
+        "border border-fg-inverse/20 bg-black/40 text-fg-inverse backdrop-blur-md",
+        "transition-[background-color,border-color,transform,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-standard)]",
+        "hover:-translate-y-0.5 hover:border-accent-500 hover:bg-black/60 hover:shadow-[var(--shadow-glow-red)]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+        "[&>svg]:size-6",
       )}
       onClick={onClick}
       aria-label={ariaLabel}

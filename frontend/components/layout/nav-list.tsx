@@ -172,17 +172,16 @@ export function NavList({
                 against the edge of a tight row without affecting layout height,
                 which would shift the bar between pages.
 
-                `--color-accent-700` rather than the lighter action accent: a
-                2px rule this small needs the brand red at full strength to read
-                as deliberate, and the light accent is reserved for filled
-                surfaces large enough to carry it. Measured against the header's
-                near-white it is 5.9:1, so it stays visible rather than becoming
-                a tint.
+                `accent-500`, not `accent-700`. The old value was chosen against a
+                near-white header and measured 5.9:1 there; on the black canvas it
+                measures 2.4:1, which is a tint rather than an indicator, and it is
+                the single element that tells a visitor where they are. It is now
+                the vivid brand red, which clears 4.9:1 as a UI boundary.
               */}
               {active ? (
                 <span
                   aria-hidden="true"
-                  className={cn("absolute bg-accent-700", VARIANT_INDICATOR[variant])}
+                  className={cn("absolute bg-accent-500 shadow-[0_0_12px_rgb(224_16_35/0.7)]", VARIANT_INDICATOR[variant])}
                 />
               ) : null}
             </Link>

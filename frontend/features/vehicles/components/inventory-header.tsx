@@ -9,11 +9,11 @@ import { buttonClasses } from "@/components/ui/button-styles";
  * ---------------------------------------------------------------------------
  * Why this is a deep band rather than a light one
  * ---------------------------------------------------------------------------
- * Step 6 established a `on-inverse` scope and used it for the homepage hero, the
- * conversion panel and the footer. This page reuses that scope for its own
- * header, which is the point of having put the palette in the token layer: the
- * deep treatment is available to any page without a single new colour value
- * and without touching the design system.
+ * This page header is a deep band for the same reason the homepage hero is: it
+ * is the top of a page and should read as a showroom, not as a document. It gets
+ * that from the same token layer rather than from any local colour, so the black
+ * canvas is available to every route without touching the design system - which
+ * is what the black + red + white re-theme turned out to rely on.
  *
  * It is deliberately a quieter composition than the homepage hero - no artwork,
  * tighter padding, no oversized headline. A catalogue page is a working surface
@@ -39,7 +39,7 @@ export function InventoryHeader() {
         reader should announce the same words a sighted visitor reads.
       */
       aria-labelledby="inventory-heading"
-      className="on-inverse relative overflow-hidden border-b border-line bg-page"
+      className="relative overflow-hidden border-b border-line bg-page"
     >
       {/*
         The same soft lift behind the hero copy on the homepage, drawn from

@@ -118,11 +118,11 @@ export default async function ComparePage({
   */
   return (
     /*
-      `on-inverse` opens the deep palette for the whole page, exactly as
+      `bg-page` opens the near-black canvas for the whole page, exactly as
       `/inventory` does. The header and footer live in the marketing layout
       outside this wrapper and keep the treatment they have everywhere else.
     */
-    <div className="on-inverse bg-page">
+    <div className="bg-page">
       <VehicleComparison
         vehicles={vehicles}
         catalogue={catalogue}

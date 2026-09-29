@@ -133,7 +133,7 @@ export function VehicleComparison({
   const selected = vehicles.map((vehicle) => vehicle.slug);
 
   return (
-    <div className="on-inverse bg-page">
+    <div className="bg-page">
       <section aria-labelledby="compare-heading" className="relative overflow-hidden border-b border-line">
         {/* The same header composition as /inventory and /brands, from the token layer. */}
         <div

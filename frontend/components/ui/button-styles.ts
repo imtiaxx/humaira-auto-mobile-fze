@@ -34,9 +34,11 @@ export const BUTTON_BASE =
   "transition-[background-color,border-color,color,box-shadow,transform] " +
   "duration-[var(--duration-fast)] ease-[var(--ease-standard)] " +
   "select-none " +
-  // Pressed state. A 1px nudge reads as physical feedback without being an
-  // animation anyone will consciously notice.
-  "active:translate-y-px " +
+  // Micro-interaction: a 1px lift on hover. On a black page the fill change alone
+  // is easy to miss because there is no colour behind it to shift against, so the
+  // button gives a small physical response as well.
+  "hover:-translate-y-px " +
+  "active:translate-y-0 " +
   // Disabled is set on the element by the components that use this, so the
   // cursor and pointer-events follow the real `disabled` attribute rather than a
   // class that only looks disabled.
@@ -45,22 +47,57 @@ export const BUTTON_BASE =
   "[&>svg]:size-4 [&>svg]:shrink-0";
 
 export const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  /** The single most important action on a screen. Near-black, not gold. */
+  /**
+   * The single most important action on a screen.
+   *
+   * White on black rather than black on white: this is the one inversion the
+   * re-theme needed. A near-black primary button on a near-black page is
+   * invisible, so "primary" became a light plate - the classic luxury
+   * high-contrast treatment, and still clearly secondary in emphasis to the red
+   * accent below.
+   */
   primary:
     "bg-action-primary text-action-primary-content hover:bg-action-primary-hover active:bg-action-primary-hover",
   /**
-   * The brand's conversion action: enquire, request an export quote. Brass fill
-   * with near-black type - higher contrast than white-on-gold, and the more
-   * traditional automotive treatment. Maximum one per view.
+   * The brand's conversion action: enquire, request a price. Solid Ferrari red
+   * with white type - the single strongest element in the system, and the brief
+   * asks for exactly one of these per view.
+   *
+   * The hover carries a red glow rather than simply brightening, because
+   * `--action-accent-hover` is a *deeper* red (see the accent ramp note in
+   * `globals.css`) - brightening it would drop white text below 4.5:1 and fail
+   * the contrast audit. The glow restores the sense of "lifting".
    */
-  accent: "bg-action-accent text-action-accent-content hover:bg-action-accent-hover",
-  /** Supporting action that needs a visible surface but not emphasis. */
-  secondary: "border border-line-control bg-sunken text-fg hover:border-line-strong hover:bg-page",
-  /** Lower-priority action. Transparent until hovered. */
-  outline: "border border-line-control bg-transparent text-fg hover:bg-sunken active:bg-sunken",
+  accent:
+    "bg-action-accent text-action-accent-content shadow-[0_8px_24px_-10px_rgb(224_16_35/0.6)] " +
+    "hover:bg-action-accent-hover hover:shadow-[var(--shadow-glow-red)]",
+  /**
+   * Supporting action that needs a visible surface but not emphasis.
+   *
+   * `bg-raised` rather than `bg-sunken`: on a dark page "sunken" is the darkest
+   * step, so a sunken button on a sunken section disappears. Raised is the step
+   * that reads as a surface sitting above the page.
+   */
+  secondary: "border border-line-control bg-raised text-fg hover:border-accent-500 hover:bg-sunken",
+  /**
+   * Lower-priority action.
+   *
+   * This is the brief's "black/transparent secondary CTA with a red border": the
+   * border is `--border-control` at rest and steps to the brand red on hover, so
+   * an outlined button costs no red until it is actually a candidate.
+   */
+  outline:
+    "border border-line-control bg-transparent text-fg hover:border-accent-500 hover:bg-transparent " +
+    "hover:text-fg-accent active:bg-transparent",
   /** Subtle action: toolbar icons, dismissals, tertiary links. */
-  ghost: "bg-transparent text-fg-secondary hover:bg-sunken hover:text-fg",
-  /** Reserved for irreversible or data-losing admin actions. */
+  ghost: "bg-transparent text-fg-secondary hover:bg-raised hover:text-fg",
+  /**
+   * Reserved for irreversible or data-losing admin actions.
+   *
+   * A deep maroon, deliberately distinct from the brand red - see the note on
+   * `--action-danger` in `globals.css`. A destructive control that looks like the
+   * primary CTA is a design failure even when the logic is right.
+   */
   destructive: "bg-action-danger text-action-danger-content hover:bg-action-danger-hover",
 };
 
