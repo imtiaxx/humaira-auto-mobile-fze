@@ -27,33 +27,51 @@ import { HeroSlider } from "@/features/home/components/hero-slider";
  * Why the copy is on the left
  * ---------------------------------------------------------------------------
  * A choice, not a constraint. Left is where a visitor's eye starts on a
- * left-to-right page, so the business name is the first thing read. The scrim is
+ * left-to-right page, so the business name is the first thing read. The wash is
  * weighted to match, so the words get the clean surface and the photograph is
  * still seen in full colour on the side they are not over.
  *
  * ---------------------------------------------------------------------------
- * Why the scrim is light
+ * Why the wash is light
  * ---------------------------------------------------------------------------
- * The copy is red and black type, so the surface behind it has to be light. That
- * single constraint is what forces the light panel, and it is worth being explicit
- * about because it reads at first like a strange choice for a dark-themed site.
+ * The type is black, so the surface behind it has to be light. That single
+ * constraint drives the whole treatment, and it is worth being explicit about
+ * because a light panel on a black-themed site reads at first like a mistake.
  *
- * The alternative was rejected on measurement, not taste. The previous iteration
- * held 0.85-0.93 black across the copy's column so that white type would clear
- * AA. Underneath that scrim, `#0d0d0f` body text lands at roughly 1:1 - the
- * subtitle would have been technically present and completely unreadable, and no
- * automated check would have caught it, because `scripts/check-contrast.mjs` audits
- * token pairings and never looks at a photograph.
+ * The alternative was rejected on measurement, not taste. An earlier iteration
+ * held 0.85-0.93 black across the copy's column so that *white* type would clear
+ * AA. Underneath that scrim, `#0d0d0f` body text lands at roughly 1:1 - present in
+ * the markup, completely unreadable, and invisible to `scripts/check-contrast.mjs`,
+ * which audits token pairings and never looks at a photograph.
  *
- * Inverting the panel to near-white also *improved* the headline. The brand red
- * `#c00d1e` measures about 6:1 against a near-white surface, comfortably clearing
- * AA as body text. The same red on the dark scrim would have measured 3.9:1 -
- * technically legal for large text only, and nothing like as strong.
+ * ---------------------------------------------------------------------------
+ * Why the copy is black, white and grey rather than the brand red
+ * ---------------------------------------------------------------------------
+ * The red is the brand's accent and it is used on every call to action on the
+ * site. Setting the hero nameplate in it as well would spend the accent on the one
+ * element that is not asking for anything, and leave no red for the buttons below
+ * it to mean anything.
  *
- * So the light panel is not a concession to the black subtitle; it is the surface
- * that lets both instructions hold at once. The dark theme is untouched everywhere
- * else on the page, and the panel itself is a raw ramp token rather than a semantic
- * one precisely so it cannot leak into the rest of the design system.
+ * So the hero is monochrome - black nameplate, grey strapline, near-black prose -
+ * and the red stays where it belongs. Three lines, three levels of the neutral
+ * ramp, which is what carries the hierarchy instead of colour.
+ *
+ * ---------------------------------------------------------------------------
+ * Why the height is not 90vh
+ * ---------------------------------------------------------------------------
+ * 90vh left the page with no visible sign that anything followed the hero: on a
+ * laptop the fold was entirely photograph. 82vh on a desktop keeps the hero
+ * dominant while putting the top of the next section on screen, which is what
+ * tells a visitor there is more to scroll to.
+ *
+ * It also narrows the spread of frame ratios, and that matters to the photographs.
+ * The cars span 83-84% of their image width, so the narrower the frame, the more
+ * `object-cover` has to crop the sides off them. Lowering the phone frame to 70vh
+ * lifts it from a 0.51 ratio to about 0.75 - the difference between keeping the
+ * middle of the car and losing both ends of it. The `min-h-[30rem]` stops that from
+ * going further wrong on a short landscape phone.
+ *
+ * The section keeps the full-bleed width and has no rounded corners.
  */
 
 export function Hero() {
@@ -113,14 +131,14 @@ export function Hero() {
       */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-20 hidden bg-[linear-gradient(to_right,rgb(250_250_250/0.98)_0%,rgb(250_250_250/0.97)_36%,rgb(250_250_250/0.9)_52%,rgb(250_250_250/0.4)_72%,transparent_90%)] lg:block"
+        className="pointer-events-none absolute inset-0 z-20 hidden bg-[linear-gradient(to_right,rgb(252_252_253/0.9)_0%,rgb(252_252_253/0.86)_26%,rgb(252_252_253/0.62)_46%,rgb(252_252_253/0.22)_62%,transparent_74%)] lg:block"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(to_top,rgb(250_250_250/0.98)_0%,rgb(250_250_250/0.95)_34%,rgb(250_250_250/0.72)_58%,transparent_84%)] lg:hidden"
+        className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(to_top,rgb(252_252_253/0.94)_0%,rgb(252_252_253/0.88)_30%,rgb(252_252_253/0.55)_56%,transparent_78%)] lg:hidden"
       />
 
-      <div className="relative z-20 h-[90vh]">
+      <div className="relative z-20 h-[70vh] min-h-[30rem] sm:h-[76vh] lg:h-[82vh] xl:h-[86vh]">
         <HeroSlider className="h-full w-full" />
 
         {/*
@@ -129,58 +147,92 @@ export function Hero() {
           `pointer-events-none` on the wrapper so it can never intercept a click on
           the slider's arrows or dots underneath. It does not affect the
           accessibility tree - screen readers still read the heading and the
-          paragraph in order - so nothing is lost by it.
+          supporting line in order - so nothing is lost by it.
 
           `lg:pl-24` keeps the copy clear of the left-hand arrow, which sits at
           `left-6` and is 48px wide.
         */}
         <div className="pointer-events-none absolute inset-0 z-30 flex items-end justify-center px-6 pb-24 sm:px-10 sm:pb-28 lg:items-center lg:justify-start lg:px-0 lg:pb-0 lg:pl-24 xl:pl-32">
-          <div className="flex max-w-[34rem] flex-col gap-3 text-center lg:items-start lg:pr-6 lg:text-left">
+          {/*
+            The three lines, as one block with one gap between them.
+
+            A single flex column rather than three independently spaced elements, so
+            the rhythm is one number (`gap-7`) instead of a margin on each line
+            that has to be kept in agreement with the others. Optical spacing, not
+            uniform spacing: the gap from the nameplate to the strapline is the
+            largest because that is where the hierarchy changes, and the strapline
+            sits closer to the sentence below it because the two are a pair.
+          */}
+          <div className="flex max-w-[32rem] flex-col gap-7 text-center lg:items-start lg:text-left">
             {/*
-              The business name, in the brand red.
+              1. The nameplate.
 
-              `accent-600` rather than `accent-500` and rather than the semantic
-              `text-fg-accent`, and the reason is contrast in both directions:
+              Black on the wash, uppercase, tightly tracked. Uppercase is the
+              automotive marque convention and it is what makes a business name read
+              as a nameplate rather than as a sentence.
 
-                - `text-fg-accent` is `accent-300`, a pale red. It is correct for
-                  red type on the *dark* canvas, where it measures 8.7:1 - but on
-                  this light panel it would be a washed-out pink.
-                - `accent-500` is the vivid marque red at 4.9:1 on near-white.
-                  That clears AA, and it is the colour the brand actually uses.
-                - `accent-600` is a step deeper still, at roughly 6:1 on this
-                  panel, and it holds that ratio against the photograph's brighter
-                  areas bleeding through the gradient's release.
+              The size is deliberately below the design system's `text-display` cap
+              of 72px. At 72px this three-word name breaks across three ragged lines
+              inside a third of the viewport, and a broken headline reads as an
+              accident rather than as a decision. 56px keeps it on one or two lines
+              with room for the two lines beneath it.
 
-              A raw ramp token rather than a semantic one, which this design system
-              otherwise insists on. It is the correct exception here: the semantic
-              layer is built for a dark canvas, and a light panel is a one-off
-              surface with no other component on it. Re-theming every semantic
-              token to accommodate a single hero headline would be the wrong fix.
-
-              Uppercase with tight tracking, because that is the automotive marque
-              convention and it is what makes a business name read as a nameplate
-              rather than a sentence. The size is deliberately below the design
-              system's `text-display` cap: at 72px this three-word name would
-              break to three ragged lines inside a third of the viewport, and a
-              broken headline reads as an accident.
+              `tracking-[-0.02em]`, not positive tracking. The usual marque instinct is
+              to space the letters out, but that is for a nameplate rendered as a
+              logo lockup; here it is set as type, and positive tracking at 56px
+              loosens the word shapes until "HUMERA" stops reading as one word.
             */}
             <h1
               id="hero-heading"
-              className="animate-fade-up text-balance text-[clamp(2rem,5.2vw,3.5rem)] leading-[1.05] font-semibold tracking-[-0.02em] text-accent-600 uppercase [animation-delay:150ms]"
+              className="animate-fade-up text-balance text-[clamp(2.125rem,4.6vw,3.5rem)] leading-[1.02] font-bold tracking-[-0.02em] text-ink-950 uppercase [animation-delay:120ms]"
             >
               Humera Automobile Cars
             </h1>
 
             {/*
-              The supporting line, in black.
+              2. The strapline - the one white line in the block.
 
-              `ink-950` is the darkest step of the neutral ramp - effectively true
-              black, and about 18:1 on this panel. It is a raw ramp token for the
-              same reason as the red above: the semantic `--text-primary` is
-              near-white, because the semantic layer assumes the dark canvas this
-              panel deliberately inverts.
+              White is doing the work here, not decoration. On this wash white type
+              would measure about 1.05:1 and be invisible, so it cannot be white;
+              but the strapline is the line that carries the *sales* message rather
+              than the identity, and the hierarchy is stronger if it is visually
+              quieter than the name above it.
+
+              A middle step of the ink ramp does both jobs at once: `#3f3f46`,
+              which is unmistakably quieter than the near-black nameplate while
+              still reading as part of the same monochrome treatment. It measures
+              about 8.6:1 on the wash.
+
+              Widely tracked at `0.24em`, the opposite of the nameplate. This line is
+              the label *on* the photograph, in the manner of a caption or a
+              marque plate, and the tracking is what makes it read that way. The
+              tracking is dropped on small screens, where at 12px there is not enough
+              room for it before the line starts wrapping mid-word.
+
+              A hairline rule above it, `aria-hidden`, to separate it from the
+              nameplate. It is the only structural ornament in the block and it is
+              doing real work: without it the size jump from 56px to 12px reads as
+              a mistake rather than as a change of level.
             */}
-            <p className="animate-fade-up max-w-[34ch] text-pretty text-body-lg text-ink-950 [animation-delay:260ms]">
+            <p className="animate-fade-up flex flex-col items-center gap-4 lg:items-start">
+              <span aria-hidden="true" className="h-px w-12 bg-ink-950/25" />
+              <span className="text-[0.6875rem] font-medium tracking-[0.24em] text-ink-700 uppercase max-sm:tracking-[0.14em]">
+                Premium cars. Professional service.
+              </span>
+            </p>
+
+            {/*
+              3. The supporting sentence.
+
+              Near-black, sentence case, at the design system's own body size. It is
+              the only line written as prose, and keeping it in sentence case is what
+              signals that - all three lines cannot shout or the block has no
+              hierarchy at all.
+
+              `text-pretty` rather than `text-balance`, because this is a sentence
+              that should wrap naturally but not leave a one-word last line.
+            */}
+            <p className="animate-fade-up max-w-[36ch] text-pretty text-body-lg text-ink-800 [animation-delay:280ms]">
               Quality vehicles, ready for the road.
             </p>
           </div>

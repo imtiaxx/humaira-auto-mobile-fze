@@ -15,6 +15,45 @@ export interface HeroSlide {
   id: string;
   imageUrl: string;
   alt: string;
+  /**
+   * `object-position` for this specific photograph, as `<x> <y>` percentages.
+   *
+   * Optional, defaulting to `50% 50%`, so a slide added later without one still
+   * renders - it just gets the untuned centre that these three were tuned away
+   * from.
+   *
+   * ---------------------------------------------------------------------------
+   * Why it is per image and not one value for the slider
+   * ---------------------------------------------------------------------------
+   * `object-fit: cover` scales an image to fill the frame and crops the axis that
+   * overflows. Which axis overflows depends on the frame, and the frame's ratio
+   * changes with the viewport - so a single `object-position` can only be correct
+   * for one breakpoint and is wrong at the others.
+   *
+   * It cannot be `50% 50%` either, because the three photographs do not share a
+   * composition. The vehicle's bounding box, measured off each file:
+   *
+   *   slide 1, G-Class   x 0.04..0.93   y 0.07..0.95   fills the frame
+   *   slide 2, Lexus     x 0.07..0.93   y 0.04..0.84   15% dead tarmac below
+   *   slide 3, Prado     x 0.10..0.93   y 0.03..0.92   a strip of tarmac below
+   *
+   * Slide 2 is the one that matters. It sits high, with roughly the bottom sixth
+   * of the frame being empty road. On a wide, short frame - 1920px wide at 90vh,
+   * a 1.97 ratio against the photo's 1.78 - `cover` crops about 10% of the height,
+   * and centred it would take 5% off the roof and 5% off the road. Tying it to
+   * `50% 30%` sends the whole crop to the bottom instead, so the roof stays whole
+   * and the surplus tarmac is what gets trimmed.
+   *
+   * Slides 1 and 3 have almost no spare height, so they only get a few percent of
+   * lift - enough to bias any crop toward the road rather than the roofline, and
+   * not so much that they sit visibly off-centre at 16:9 where nothing is cropped
+   * at all.
+   *
+   * The x values are near `50%` because all three cars are centred to within two
+   * percent, and are nudged toward the vehicle's own centre rather than the
+   * image's: slide 3's car sits at 0.52, not 0.50.
+   */
+  objectPosition?: string;
   /** Optional CTA; if present, the whole slide becomes a link */
   href?: string;
   /** Optional label for the CTA (used when href is present) */
@@ -61,16 +100,24 @@ const HERO_SLIDES: HeroSlide[] = [
     id: "hero-g-class",
     imageUrl: "/hero/hero-slide-1.jpg",
     alt: "A bright green Mercedes-Benz G-Class photographed from the front three-quarter angle in the dealership yard",
+    // Fills the frame edge to edge; the lift is only there to bias a height crop
+    // toward the road.
+    objectPosition: "50% 46%",
   },
   {
     id: "hero-lexus-lx",
     imageUrl: "/hero/hero-slide-2.jpg",
     alt: "A white Lexus LX 600 photographed from the front three-quarter angle in the dealership yard",
+    // Sits high in the frame with dead tarmac below it, so this is pulled well up:
+    // on a short frame the crop is taken off the road instead of the roof.
+    objectPosition: "50% 30%",
   },
   {
     id: "hero-land-cruiser",
     imageUrl: "/hero/hero-slide-3.jpg",
     alt: "A yellow Toyota Land Cruiser Prado photographed from the front three-quarter angle in the dealership yard",
+    // Car sits a touch right of centre and has a strip of road beneath it.
+    objectPosition: "52% 38%",
   },
 ];
 
@@ -331,10 +378,18 @@ function HeroSlideImage({
           className="block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           aria-label={slide.ctaLabel ?? slide.alt}
         >
-          <SlideImage src={slide.imageUrl} alt={slide.alt} />
+          <SlideImage
+            src={slide.imageUrl}
+            alt={slide.alt}
+            objectPosition={slide.objectPosition}
+          />
         </a>
       ) : (
-        <SlideImage src={slide.imageUrl} alt={slide.alt} />
+        <SlideImage
+          src={slide.imageUrl}
+          alt={slide.alt}
+          objectPosition={slide.objectPosition}
+        />
       )}
       {slide.ctaLabel && slide.href && (
         <div className="absolute inset-x-0 bottom-20 px-6 md:bottom-24 md:left-24 md:right-auto md:px-0">
@@ -367,7 +422,15 @@ function HeroSlideImage({
  * breakpoint, and a phone stops downloading a 1600x1200 photograph it will never
  * use. That is the difference between a ~40KB and a ~315KB hero on mobile.
  */
-function SlideImage({ src, alt }: { src: string; alt: string }) {
+function SlideImage({
+  src,
+  alt,
+  objectPosition,
+}: {
+  src: string;
+  alt: string;
+  objectPosition?: string;
+}) {
   return (
     <Image
       src={src}
@@ -380,30 +443,24 @@ function SlideImage({ src, alt }: { src: string; alt: string }) {
       // The hero is the Largest Contentful Paint element, so it must not be lazy.
       // `priority` also stops Next warning that the LCP image is lazy-loaded.
       priority
-      // `object-cover` - the image fills the frame, and nothing is cropped.
+      // `object-cover` - the image fills the frame, and nothing is letterboxed.
       //
-      // This is only correct because the photographs were cropped to 16:9 by
-      // `scripts/crop_hero_to_widescreen.py`, which is what made the fit mode a
-      // choice rather than a compromise. At 4:3 in a ~16:9 frame the two options
-      // were both bad: `cover` scaled the image to 133% of the frame's height and
-      // cut a quarter of every photo away - the over-cropped car - while
-      // `contain` showed the whole car but left the sides of the frame empty.
-      //
-      // At 1600x900 the photo's ratio now matches the frame's, so `cover` has
-      // nothing to crop: it fills the full width and shows the entire photograph.
-      // A 1440px-wide viewport at 90vh is exactly 16:9, so on the most common
-      // desktop the fit is pixel-exact.
-      //
-      // On a wider or shorter viewport a little height is trimmed rather than the
-      // sides - the correct thing to lose, because the sides of these photographs
-      // are the car's front and rear wings.
+      // At 1600x900 the photo's ratio matches a 16:9 frame, so on a 1440px-wide
+      // desktop at this hero's height the fit is pixel-exact and `cover` has
+      // nothing to crop at all. On any other frame it crops the overflowing axis
+      // rather than leaving empty bars - which is the better result, because the
+      // sides of these photographs are the cars' front and rear wings.
       className="object-cover"
       style={{
+        // The per-photograph focal point. See `HeroSlide.objectPosition` for why
+        // this cannot be a single value for the slider. `undefined` is passed
+        // through rather than defaulted here so that an absent value falls back
+        // to CSS's own `50% 50%` instead of being frozen into an inline style.
+        objectPosition,
         // A gradient of two *surfaces*, not of two hues, so it cannot shift the
         // perceived colour of the image that replaces it - and on the black canvas
         // it is nearly black, which is what the empty sides of the frame will be
-        // while the photograph decodes. It is also what keeps those sides from
-        // being dead black during load.
+        // while the photograph decodes.
         backgroundImage: `linear-gradient(135deg, var(--surface-sunken) 0%, var(--surface-raised) 100%)`,
       }}
     />

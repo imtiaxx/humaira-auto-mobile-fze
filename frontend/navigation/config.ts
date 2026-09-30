@@ -93,23 +93,34 @@ export const PRIMARY_NAV: NavItem[] = [
     href: "/inventory",
   },
   {
+    // Promoted from `planned` to `live` when `/sell` was built
+    // (`app/(marketing)/sell/page.tsx`). `path` became `href`, and because `href`
+    // is typed as Next's `Route` the compiler verified the route exists as part
+    // of the same change. The label is unchanged - "Sell / Source" is the
+    // vocabulary this site has always used for these two services, and
+    // `navigation/active.ts` already reasons about the `/sell` path.
     label: "Sell / Source",
-    status: "planned",
-    path: "/sell",
-    note: "Vehicle sourcing is not built yet",
+    status: "live",
+    href: "/sell",
   },
   {
+    // Promoted from `planned` to `live` when `/about` was built
+    // (`app/(marketing)/about/page.tsx`). `path` became `href`, and because `href`
+    // is typed as Next's `Route` the compiler verified the route exists as part of
+    // the same change. The label is unchanged - it is the vocabulary the rest of
+    // the information architecture is built on.
     label: "About",
-    status: "planned",
-    path: "/about",
-    note: "Company information is not built yet",
+    status: "live",
+    href: "/about",
   },
-  {
-    label: "Contact",
-    status: "planned",
-    path: "/contact",
-    note: "Contact page is not built yet",
-  },
+{
+      // Promoted from `planned` to `live` when `/contact` was built
+      // (`app/(marketing)/contact/page.tsx`). `path` became `href`, so the compiler
+      // verified the route exists in the same change that promoted it.
+      label: "Contact",
+      status: "live",
+      href: "/contact",
+    },
 ];
 
 /**
@@ -125,8 +136,12 @@ export const FOOTER_NAV: NavGroup[] = [
     id: "company",
     title: "Company",
     items: [
-      { label: "About", status: "planned", path: "/about", note: "Not built yet" },
-      { label: "Contact", status: "planned", path: "/contact", note: "Not built yet" },
+      // Promoted to `live` alongside the primary nav item, same reason. Left in the
+      // Company group because the group is titled for the section and this is the
+      // page that introduces it.
+      { label: "About", status: "live", href: "/about" },
+      // Promoted to `live` alongside the primary nav item, same reason.
+      { label: "Contact", status: "live", href: "/contact" },
       { label: "FAQ", status: "planned", path: "/faq", note: "Not built yet" },
     ],
   },
@@ -167,10 +182,14 @@ export const FOOTER_NAV: NavGroup[] = [
     title: "Sell / Source",
     items: [
       {
-        label: "Sell / Source a Car",
-        status: "planned",
-        path: "/sell",
-        note: "Not built yet",
+        // Promoted to `live` alongside the primary nav item, same reason. This is
+        // the entry that actually names the page, so the link text is
+        // "Sell / Source" rather than the older "Sell / Source a Car" - the page
+        // covers both selling and sourcing, and the old wording implied only
+        // selling.
+        label: "Sell / Source",
+        status: "live",
+        href: "/sell",
       },
       {
         label: "Request a Vehicle",
