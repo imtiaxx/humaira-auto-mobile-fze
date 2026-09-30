@@ -86,13 +86,23 @@ import type { FacetOption, VehicleFacets } from "@/features/vehicles/lib/facets"
  * and neither `min` nor `max` can say it.
  */
 
-/** The field names, in the wire vocabulary. One place, so form and parser agree. */
+/**
+ * The field names, in the wire vocabulary. One place, so form and parser agree.
+ *
+ * `transmission` is deliberately absent: it is no longer offered as an inventory
+ * filter, and a name that maps to no control is dead weight here.
+ *
+ * That is a change to this *form* only. The parameter is still accepted by
+ * `filters.ts` and still honoured by the API, and transmission is still shown on
+ * the vehicle detail page, in compare, and in the staff vehicle form. Removing a
+ * filter is not the same as removing the attribute, and this dealership still
+ * records one.
+ */
 const FIELDS = {
   query: "query",
   make: "make",
   bodyType: "body_type",
   fuel: "fuel",
-  transmission: "transmission",
   minPrice: "min_price",
   maxPrice: "max_price",
   minYear: "min_year",
@@ -200,7 +210,7 @@ export function InventoryFilters({
         {/*
           `method="get"` with no `onSubmit`. A GET submission replaces the entire
           query string with the form's own fields, which is right here: the form
-          carries all ten filters, so a filter the visitor has since cleared
+          carries all nine filters, so a filter the visitor has since cleared
           disappears from the URL instead of surviving invisibly.
         */}
         <form method="get" action="/inventory" className="mt-10 flex flex-col gap-6">
@@ -245,15 +255,6 @@ export function InventoryFilters({
               options={facets.fuels}
               selected={values[FIELDS.fuel] ?? ""}
               error={errors.fuel}
-            />
-
-            <FacetSelect
-              name={FIELDS.transmission}
-              label="Transmission"
-              help="Vehicles with no transmission recorded are not included."
-              options={facets.transmissions}
-              selected={values[FIELDS.transmission] ?? ""}
-              error={errors.transmission}
             />
 
             <Field

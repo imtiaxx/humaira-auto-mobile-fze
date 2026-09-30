@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { Hero } from "@/features/home/components/hero";
 import { WelcomeSection } from "@/features/home/components/welcome-section";
 import { ServiceHighlights } from "@/features/home/components/service-highlights";
+import { toShowroomCars } from "@/features/home/lib/showroom-cars";
+import { PLACEHOLDER_CARS } from "@/features/home/lib/placeholder-cars";
 import { SITE_NAME } from "@/config/site";
 
 /**
@@ -54,6 +56,21 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * The mapped cars, resolved once at module scope.
+ *
+ * `WelcomeSection` takes data as a prop and holds none, so the mapping is the
+ * page's job. Doing it here rather than inside the section is what makes the
+ * eventual swap to the real inventory a one-line change: replace
+ * `toShowroomCars(PLACEHOLDER_CARS)` with `fromVehicles(vehicles, resolveType)`
+ * and nothing in the section changes.
+ *
+ * Module scope rather than inside the component body because the result is a pure
+ * function of a constant, and recomputing it on every render would be work whose
+ * output never changes.
+ */
+const SHOWROOM_CARS = toShowroomCars(PLACEHOLDER_CARS);
+
 export default function HomePage() {
   return (
     <>
@@ -64,7 +81,7 @@ export default function HomePage() {
       */}
       <Hero />
 
-      <WelcomeSection />
+      <WelcomeSection cars={SHOWROOM_CARS} />
 
       <ServiceHighlights />
     </>

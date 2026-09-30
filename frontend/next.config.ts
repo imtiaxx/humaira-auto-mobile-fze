@@ -70,12 +70,23 @@ function remotePatterns(): NonNullable<NextConfig["images"]>["remotePatterns"] {
     });
   }
 
-  // Unsplash placeholder images for welcome section (development only)
-  patterns.push({
-    protocol: "https",
-    hostname: "images.unsplash.com",
-    pathname: "/**",
-  });
+  /*
+   * `images.unsplash.com` used to be allowed here, for the placeholder
+   * photographs the hero slider used before real photography was added. It is
+   * gone, and deliberately:
+   *
+   *   - nothing references it any more, so it was pure attack surface. Every entry
+   *     in this list is a host the optimiser will fetch an arbitrary path from on
+   *     this server's behalf, so an allow-list entry that is not needed is an
+   *     ability to proxy someone else's origin that nobody asked for.
+   *   - all eight of those Unsplash URLs 404'd. The allow-list was working
+   *     correctly and the images were still broken, which is the clearest possible
+   *     argument that the fix for a broken image is the right image, not a wider
+   *     allow-list.
+   *
+   * If a genuinely remote image source is ever needed, add it here deliberately
+   * and with a narrowed `pathname`, the way the API origin above is.
+   */
 
   return patterns;
 }

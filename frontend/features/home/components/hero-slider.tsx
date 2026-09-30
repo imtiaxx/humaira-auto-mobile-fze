@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight } from "@/components/icons";
@@ -21,48 +22,88 @@ export interface HeroSlide {
 }
 
 /**
- * Dummy slides — replaced by real data once the admin dashboard exists.
- * Uses Unsplash source URLs that serve random vehicle-ish images.
- * These are external but stable enough for development.
+ * The hero slides.
+ *
+ * ---------------------------------------------------------------------------
+ * Where these images came from
+ * ---------------------------------------------------------------------------
+ * Real photography of the dealership's own stock, taken in the Ras Al Khor yard -
+ * the same three photographs the previous website showed in its hero carousel,
+ * pulled from that site's own uploads and committed here.
+ *
+ * They live in `public/hero/` and are referenced as site-relative paths rather than
+ * hosted elsewhere. Three reasons, in order of importance:
+ *
+ *   1. A remote `src` means every visitor's browser fetches from a third-party
+ *      host - slower, and it breaks the moment that host moves a file. It also
+ *      requires that host in `next.config.ts`'s `remotePatterns`, which widens the
+ *      image optimiser's allow-list for every image on the site.
+ *   2. `next/image` cannot optimise a source it does not control at build time, so
+ *      a remote hero photograph ships at whatever resolution it was uploaded at
+ *      and is never re-encoded to AVIF/WebP. A local file gets the same treatment
+ *      as every other image in the project.
+ *   3. Once vehicles exist in the database these same files should be uploaded
+ *      through the staff vehicle manager and served from the API's media route.
+ *      That is the long-term home for vehicle photography, and a `public/` asset
+ *      is the right interim: it is real photography now, and it has somewhere
+ *      sensible to move to.
+ *
+ * ---------------------------------------------------------------------------
+ * Alt text
+ * ---------------------------------------------------------------------------
+ * Written as what a sighted reader takes from the photograph - the car, its
+ * colour, the view. There is no adjacent heading here to duplicate, which is why
+ * this differs from the vehicle cards, where the title sits directly beneath the
+ * image and the image's alt is deliberately empty.
  */
-const DUMMY_SLIDES: HeroSlide[] = [
+const HERO_SLIDES: HeroSlide[] = [
   {
-    id: "slide-1",
-    imageUrl: "https://images.unsplash.com/photo-1544829099-b9a0c5303bea?w=1920&q=80",
-    alt: "Modern luxury SUV in showroom lighting",
-    ctaLabel: "Explore SUVs",
+    id: "hero-g-class",
+    imageUrl: "/hero/hero-slide-1.jpg",
+    alt: "A bright green Mercedes-Benz G-Class photographed from the front three-quarter angle in the dealership yard",
   },
   {
-    id: "slide-2",
-    imageUrl: "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=1920&q=80",
-    alt: "Premium sedan on desert highway",
-    ctaLabel: "View Sedans",
+    id: "hero-lexus-lx",
+    imageUrl: "/hero/hero-slide-2.jpg",
+    alt: "A white Lexus LX 600 photographed from the front three-quarter angle in the dealership yard",
   },
   {
-    id: "slide-3",
-    imageUrl: "https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?w=1920&q=80",
-    alt: "Off-road vehicle in rugged terrain",
-    ctaLabel: "Discover 4x4s",
+    id: "hero-land-cruiser",
+    imageUrl: "/hero/hero-slide-3.jpg",
+    alt: "A yellow Toyota Land Cruiser Prado photographed from the front three-quarter angle in the dealership yard",
   },
 ];
 
-/**
- * Configuration for slider behaviour. Exposed so the future dashboard
- * can control autoplay interval, etc., without touching component logic.
- */
+/** What the caller can change about the slider's behaviour. */
 interface SliderConfig {
-  /** Autoplay interval in milliseconds (0 = disabled) */
+  /** Milliseconds between automatic advances. `0` disables autoplay entirely. */
   autoplayInterval: number;
-  /** Pause autoplay on hover/focus */
+  /** Hold the autoplay while the pointer or focus is inside the slider. */
   pauseOnHover: boolean;
-  /** Show navigation arrows */
+  /** Show the previous/next arrows. */
   showArrows: boolean;
-  /** Show dot indicators */
+  /** Show the dot indicators. */
   showDots: boolean;
 }
 
+/**
+ * Default slider behaviour.
+ *
+ * The 5000ms interval and 700ms transition are the values the previous site's
+ * carousel ran at, read from its own configuration, so the new slider has the same
+ * rhythm rather than merely looking similar.
+ *
+ * `pauseOnHover` is the one deliberate difference. The old carousel did not pause,
+ * which meant a visitor who had rested the pointer on a photograph to read it had
+ * it pulled out from under them mid-sentence. It is worth the deviation, and it is
+ * also what WCAG 2.2.2 asks for: anything that moves automatically for more than
+ * five seconds needs a way to pause it, and hover is that way.
+ *
+ * There is a second, stronger one: `prefers-reduced-motion` disables autoplay
+ * entirely. See the effect in this component.
+ */
 const DEFAULT_CONFIG: SliderConfig = {
-  autoplayInterval: 3000,
+  autoplayInterval: 5000,
   pauseOnHover: true,
   showArrows: true,
   showDots: true,
@@ -90,7 +131,7 @@ interface HeroSliderProps {
  * - Server/Client boundary clean: parent fetches data, this is pure client
  */
 export function HeroSlider({
-  slides = DUMMY_SLIDES,
+  slides = HERO_SLIDES,
   config = {},
   className,
 }: HeroSliderProps) {
@@ -178,8 +219,13 @@ export function HeroSlider({
         wrong once the hero gave it a fixed `h-[90vh]`. An aspect box inside a
         fixed-height parent is a contradiction: the box computed a height from the
         width, overflowed the 90vh, and the hero grew a scrollbar. The height now
-        comes from the hero and the images `object-cover` into whatever shape that
-        produces.
+        comes from the hero and each image fits itself into whatever shape that
+        produces - see the note on `object-cover` in `SlideImage`.
+
+        `bg-sunken` is now only a placeholder, not a pillarbox. The photographs
+        were cropped to 16:9 to match this frame, so the image reaches the edges
+        and there is nothing showing through. It is still the colour behind the
+        photograph while it decodes, which is why it is the darkest step.
 
         The consequence is that the frame's aspect ratio is now the viewport's
         rather than a designed one. That is the right trade for a full-bleed hero:
@@ -188,7 +234,7 @@ export function HeroSlider({
         landscape photograph - which is a better result than a 16:9 box with empty
         space either side of it.
       */}
-      <div className="relative h-full w-full">
+      <div className="relative h-full w-full bg-sunken">
         {slides.map((slide, index) => (
           <HeroSlideImage
             key={slide.id}
@@ -269,10 +315,11 @@ function HeroSlideImage({
   return (
     <div
       className={cn(
-        // The cross-fade. 500ms is slow enough to read as a dissolve rather than
-        // a cut, and `ease-out-soft` decelerates into the incoming slide so it
-        // arrives rather than stopping.
-        "absolute inset-0 transition-opacity duration-500 ease-out-soft",
+        // The cross-fade. 700ms is the transition speed the previous site's carousel
+        // ran at, and it is slow enough to read as a dissolve rather than a cut.
+        // `ease-out-soft` decelerates into the incoming slide so it arrives rather
+        // than stopping.
+        "absolute inset-0 transition-opacity duration-700 ease-out-soft",
         isActive ? "z-10 opacity-100" : "pointer-events-none z-0 opacity-0",
         prefersReducedMotion && "transition-none",
       )}
@@ -303,30 +350,62 @@ function HeroSlideImage({
 }
 
 /**
- * The actual `<img>` with proper sizing, loading, and error handling.
+ * The slide photograph.
+ *
+ * `next/image` with `fill`, not a plain `<img>`.
+ *
+ * This was a plain `<img>` for as long as the slides pointed at remote
+ * placeholders, and that was a reasonable trade then: `next/image` cannot
+ * optimise a source it does not control, so it would have fetched the full remote
+ * file anyway and added a round trip through this server for nothing. The cost was
+ * that the hero shipped unoptimised - 315KB of JPEG on the LCP element, never
+ * re-encoded to AVIF or WebP - which is the warning `eslint` has been reporting
+ * on this line throughout.
+ *
+ * With local files that reasoning inverts. The optimiser now has everything it
+ * needs: it re-encodes to AVIF/WebP, serves a width-appropriate source per
+ * breakpoint, and a phone stops downloading a 1600x1200 photograph it will never
+ * use. That is the difference between a ~40KB and a ~315KB hero on mobile.
  */
 function SlideImage({ src, alt }: { src: string; alt: string }) {
-   
   return (
-    <img
+    <Image
       src={src}
       alt={alt}
-      // `object-cover` rather than `contain`: the frame is now the viewport's
-      // shape (see the note on the slide container), so the image has to fill it
-      // and crop. `contain` would letterbox a landscape photograph into a portrait
-      // phone and put black bars inside the hero.
-      className="h-full w-full object-cover"
-      loading="eager"
-      fetchPriority="high"
-      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 80vw"
-      // A placeholder so the frame is never a white flash while the photograph
-      // decodes. This is a gradient of two *surfaces*, not of two hues, so it
-      // cannot shift the perceived colour of the image that replaces it - and on
-      // the black canvas it is nearly black, which is what a loading hero should
-      // look like rather than a grey box.
+      fill
+      // Tells the optimiser how wide the image is rendered, so it can pick a
+      // source size. The hero is full-bleed: 100vw on a phone, close to the
+      // viewport width everywhere else.
+      sizes="100vw"
+      // The hero is the Largest Contentful Paint element, so it must not be lazy.
+      // `priority` also stops Next warning that the LCP image is lazy-loaded.
+      priority
+      // `object-cover` - the image fills the frame, and nothing is cropped.
+      //
+      // This is only correct because the photographs were cropped to 16:9 by
+      // `scripts/crop_hero_to_widescreen.py`, which is what made the fit mode a
+      // choice rather than a compromise. At 4:3 in a ~16:9 frame the two options
+      // were both bad: `cover` scaled the image to 133% of the frame's height and
+      // cut a quarter of every photo away - the over-cropped car - while
+      // `contain` showed the whole car but left the sides of the frame empty.
+      //
+      // At 1600x900 the photo's ratio now matches the frame's, so `cover` has
+      // nothing to crop: it fills the full width and shows the entire photograph.
+      // A 1440px-wide viewport at 90vh is exactly 16:9, so on the most common
+      // desktop the fit is pixel-exact.
+      //
+      // On a wider or shorter viewport a little height is trimmed rather than the
+      // sides - the correct thing to lose, because the sides of these photographs
+      // are the car's front and rear wings.
+      className="object-cover"
       style={{
+        // A gradient of two *surfaces*, not of two hues, so it cannot shift the
+        // perceived colour of the image that replaces it - and on the black canvas
+        // it is nearly black, which is what the empty sides of the frame will be
+        // while the photograph decodes. It is also what keeps those sides from
+        // being dead black during load.
         backgroundImage: `linear-gradient(135deg, var(--surface-sunken) 0%, var(--surface-raised) 100%)`,
-      } as React.CSSProperties}
+      }}
     />
   );
 }
