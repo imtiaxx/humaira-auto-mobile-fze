@@ -45,7 +45,11 @@ export function Surface({
   children: ReactNode;
 }) {
   const variants = {
-    raised: "bg-raised border border-line shadow-sm",
+    // `card-edge` rather than a bare `shadow-sm`: the utility adds the top-edge
+    // highlight that makes a card read as *raised* on a near-black canvas. A card
+    // with only a drop shadow here looks like a hole, because the shadow is
+    // invisible against a surface it barely differs from.
+    raised: "bg-raised border border-line card-edge",
     sunken: "bg-sunken border border-line",
     inverse: "bg-inverse border border-transparent",
   } as const;
@@ -59,10 +63,13 @@ export function Surface({
         // alpha bloom. `focus-within` mirrors hover so tabbing to a card's link
         // produces the same emphasis the pointer does - without that, the
         // keyboard path through a grid of cards gets no affordance at all.
-        interactive &&
-          "transition-[border-color,box-shadow,transform] duration-[var(--duration-base)] ease-[var(--ease-standard)] " +
-            "hover:-translate-y-0.5 hover:border-accent-500 hover:shadow-[var(--shadow-glow-red)] " +
-            "focus-within:-translate-y-0.5 focus-within:border-accent-500 focus-within:shadow-[var(--shadow-glow-red)]",
+        // `card-edge-interactive` supersedes the plain `card-edge` in the variant
+        // above, because both write `box-shadow` and the later utility in the
+        // cascade wins. It carries the lift, the red-tinted border and the
+        // transition together, so the resting and hovered states cannot drift
+        // apart. `focus-within` is inside the utility, matching hover, so the
+        // keyboard path through a card grid gets the same affordance.
+        interactive && "card-edge-interactive",
         className,
       )}
     >

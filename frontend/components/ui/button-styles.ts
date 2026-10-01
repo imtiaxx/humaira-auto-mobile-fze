@@ -39,6 +39,10 @@ export const BUTTON_BASE =
   // button gives a small physical response as well.
   "hover:-translate-y-px " +
   "active:translate-y-0 " +
+  // A 1px top-edge highlight on every button. On a filled red or white plate this
+  // is what stops the control reading as a flat rectangle - it is the same trick
+  // `card-edge` plays on cards, at a scale you can see without looking for it.
+  "[&]:shadow-[inset_0_1px_0_0_rgb(255_255_255/0.14)] " +
   // Disabled is set on the element by the components that use this, so the
   // cursor and pointer-events follow the real `disabled` attribute rather than a
   // class that only looks disabled.
@@ -59,17 +63,14 @@ export const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary:
     "bg-action-primary text-action-primary-content hover:bg-action-primary-hover active:bg-action-primary-hover",
   /**
-   * The brand's conversion action: enquire, request a price. Solid Ferrari red
-   * with white type - the single strongest element in the system, and the brief
-   * asks for exactly one of these per view.
-   *
-   * The hover carries a red glow rather than simply brightening, because
-   * `--action-accent-hover` is a *deeper* red (see the accent ramp note in
-   * `globals.css`) - brightening it would drop white text below 4.5:1 and fail
-   * the contrast audit. The glow restores the sense of "lifting".
+   * The brand's conversion action: enquire, request a price. Solid brand red with
+   * white type. The brief asks for a brighter red on hover, but `#FF1F36`
+   * against white is 3.8:1 and falls under AA. So the hover *deepens* the fill
+   * to keep contrast rising (5.8:1 with white), and the lift + top highlight +
+   * the red glow do all the work for brightness instead.
    */
   accent:
-    "bg-action-accent text-action-accent-content shadow-[0_8px_24px_-10px_rgb(224_16_35/0.6)] " +
+    "bg-action-accent text-action-accent-content shadow-[0_8px_24px_-10px_rgb(225_15_36/0.42)] " +
     "hover:bg-action-accent-hover hover:shadow-[var(--shadow-glow-red)]",
   /**
    * Supporting action that needs a visible surface but not emphasis.

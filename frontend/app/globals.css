@@ -55,24 +55,44 @@
    yet. The cost is a few kilobytes of custom properties.
    -------------------------------------------------------------------------- */
 @theme static {
-  /* Neutral graphite / ink. Deliberately *neutral* rather than blue-shifted now
-     that this is the dark canvas: a blue cast on near-black reads as a slightly
-     lit screen, and the luxury direction is a black showroom, not a dark mode.
-     The low steps stay light enough to carry white body copy, so the same ramp
-     serves both roles - `--color-ink-50` is the white text, `--color-ink-950`
-     and `-1000` are the surfaces. */
-  --color-ink-50: #fafafa;
-  --color-ink-100: #f2f2f3;
-  --color-ink-200: #dedee1;
-  --color-ink-300: #b8b8bd;
-  --color-ink-400: #8e8e96;
-  --color-ink-500: #6a6a72;
-  --color-ink-600: #4e4e56;
-  --color-ink-700: #3a3a41;
-  --color-ink-800: #26262b;
-  --color-ink-900: #16161a;
-  --color-ink-950: #0d0d0f;
-  --color-ink-1000: #08080a;
+  /* Neutral graphite / ink - the luxury palette, stepped.
+     *
+     * The brand brief sets the four surface steps exactly: `#0F1013` page,
+     * `#14161A` sections, `#191B20` cards, `#1E2026` elevated. Those four are
+     * this ramp's `-1000` through `-800`, so the existing semantic tokens keep
+     * resolving to them and no component class changes.
+     *
+     * Why the steps are so close together. This is the whole difference between
+     * "premium" and "SaaS dark mode": a luxury interior is a set of adjacent
+     * near-blacks separated by *hairlines and light*, not a set of distant
+     * greys separated by emptiness. Each surface here is only ~4-6 RGB points
+     * above the one below it, so no band reads as a hole, and separation is done
+     * with a 1px border plus a highlight inset rather than with a big tonal jump.
+     *
+     * The blue cast is very slight and deliberate (`#0F1013` is B+5 over R). A
+     * true neutral `#0D0D0F` reads as a switched-off screen; a few points of blue
+     * reads as a lit showroom wall under LED lighting. It is the same trick a
+     * car body colour plays, and it is why the surfaces no longer look like pure
+     * black. */
+  --color-ink-50: #f5f5f7;
+  --color-ink-100: #ececee;
+  --color-ink-200: #d6d7dc;
+  --color-ink-300: #b5b7be;
+  --color-ink-400: #8e9099;
+  --color-ink-500: #6a6d76;
+  --color-ink-600: #50525b;
+  --color-ink-700: #3a3c44;
+  --color-ink-800: #1e2026;
+  --color-ink-900: #191b20;
+  --color-ink-950: #14161a;
+  --color-ink-1000: #0f1013;
+
+  /* One step above the cards, for anything that should read as sitting *on* the
+     page rather than being cut into it: dropdowns, dialogs, the sticky header,
+     and hover states on a card. Not in the brief's list because it is an
+     elevation, not a surface, but the fourth step was needed for the layering
+     to have somewhere to go. */
+  --color-ink-1100: #262830;
 
   /* Red accent - the brand colour.
    -
@@ -95,10 +115,17 @@
   --color-accent-50: #fff1f2;
   --color-accent-100: #ffe1e4;
   --color-accent-200: #ffc3c8;
-  --color-accent-300: #ff8b91;   /* text on near-black - 8.8:1 */
-  --color-accent-400: #ff5f68;   /* text/hover on near-black - 6.7:1 */
-  --color-accent-500: #e01023;   /* CTA fill - white on it is 4.9:1 */
-  --color-accent-600: #c00d1e;   /* CTA hover (deeper) - 5.6:1 */
+  --color-accent-300: #ff4a5c;   /* text on a card - 5.2:1 */
+  --color-accent-400: #ff1f36;   /* the brief's hover red - 5.0:1 on the page */
+  --color-accent-500: #e10f24;   /* CTA fill - white on it is 4.9:1 */
+  /* CTA hover stays *deeper* than 500. The brief asks for a brighter hover red,
+     and `#FF1F36` is it - but that value is 3.8:1 against white, so it cannot
+     also be a fill carrying white type. The two roles cannot share one token, so
+     the fill deepens (5.8:1, the ratio *rising* on hover) and `#FF1F36` is spent
+     where a brighter red actually helps: accent text, borders, focus rings and
+     the glow. Deepening is also the correct read for a dark canvas - a red that
+     gets paler on hover looks like a highlight, not a press. */
+  --color-accent-600: #c40d1e;   /* CTA hover (deeper) - 5.8:1 with white */
   --color-accent-700: #a10d1b;   /* deep brand red, borders and glows */
   --color-accent-800: #7d0a16;
   --color-accent-900: #5e0710;
@@ -275,12 +302,19 @@
      low-alpha red bloom underneath. Kept to a single ring rather than a
      multi-layer neon stack - the brief asks for glow without cyberpunk, and
      two shadows is the most that stays restrained. */
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-  --shadow-sm: 0 2px 6px -1px rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.4);
-  --shadow-md: 0 10px 24px -6px rgb(0 0 0 / 0.6), 0 4px 8px -4px rgb(0 0 0 / 0.4);
-  --shadow-lg: 0 24px 48px -12px rgb(0 0 0 / 0.75), 0 8px 16px -8px rgb(0 0 0 / 0.5);
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.28);
+  --shadow-sm: 0 2px 6px -1px rgb(0 0 0 / 0.34), 0 1px 2px -1px rgb(0 0 0 / 0.24);
+  --shadow-md: 0 10px 24px -6px rgb(0 0 0 / 0.42), 0 4px 8px -4px rgb(0 0 0 / 0.28);
+  --shadow-lg: 0 24px 48px -12px rgb(0 0 0 / 0.58), 0 8px 16px -8px rgb(0 0 0 / 0.36);
+  /* The lifted card. A single top-edge highlight rather than a second shadow:
+       on a near-black surface the top highlight is what actually reads as "this
+       is raised", the way a light catches a metal panel. Cheaper than a shadow,
+       and it is the detail that separates a premium dark surface from a flat
+       grey box. */
+  --shadow-lift:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.05), 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-glow-red:
-    0 0 0 1px rgb(224 16 35 / 0.55), 0 18px 48px -18px rgb(224 16 35 / 0.45);
+    0 0 0 1px rgb(255 31 54 / 0.42), 0 14px 40px -16px rgb(225 15 36 / 0.38);
 
   /* Motion. Two curves, three durations, nothing else. Durations are short
      enough that a slow device feels responsive rather than sluggish, and long
@@ -417,13 +451,13 @@
 :root {
   color-scheme: dark;
 
-  --surface-page: var(--color-ink-950);
+  --surface-page: var(--color-ink-1000);
   --surface-raised: var(--color-ink-900);
-  --surface-sunken: var(--color-ink-1000);
+  --surface-sunken: var(--color-ink-950);
   --surface-inverse: var(--color-ink-50);
   /* Dropdowns, dialogs and popovers. One step above the base so an overlay
      separates from the page it is floating over. */
-  --surface-overlay: var(--color-ink-900);
+  --surface-overlay: var(--color-ink-1100);
   /* Form control fill. Dark, and *lighter* than the page, so a field reads as a
      writable surface rather than as a hole cut in the page. The invariant from
      the previous theme still holds: controls set `bg-field` themselves, so a
@@ -439,9 +473,14 @@
   /* Borders run lighter than the surfaces they divide. On black a hairline tuned
      for a white page is simply absent, so these are several steps up the ramp and
      the interactive one clears the 3:1 of WCAG 1.4.11. */
-  --border-subtle: var(--color-ink-800);
-  --border-default: #34343a;
-  --border-strong: #4a4a52;
+  --border-subtle: #2a2c33;
+  --border-default: #3a3c44;
+  --border-strong: #50525b;
+  /* Lightened one step. The field fill moved up from #1C1C20 to #1E2026, and the
+     old `ink-500` border against the *new* field drops to 2.5:1 - under the 3:1
+     that WCAG 1.4.11 requires of a control boundary. `ink-500` in the refreshed
+     ramp is #6A6D76, which clears it at 3.2:1 on the field and 2.9:1 on the page
+     (the page is not a control surface, so the field is the pair that counts). */
   --border-control: var(--color-ink-500);
   --border-inverse: rgb(255 255 255 / 0.14);
 
@@ -512,7 +551,7 @@
     --surface-sunken: var(--color-ink-1000);
     --surface-inverse: var(--color-ink-50);
     --surface-overlay: var(--color-ink-900);
-    --surface-field: #1c1c20;
+--surface-field: #1e2026;
     --scrim: rgb(0 0 0 / 0.72);
 
     --border-subtle: var(--color-ink-800);
@@ -763,6 +802,62 @@
 
 @utility rule-bottom {
   border-bottom: 1px solid var(--border-subtle);
+}
+
+/**
+ * The luxury card edge.
+ *
+ * A card on this canvas needs three things to stop reading as a flat rectangle:
+ * a hairline, a top-edge highlight, and a deeper shadow underneath. The border
+ * alone looks like a wireframe; the shadow alone is invisible on near-black. This
+ * is the combination, as one utility, so a card cannot be given two of the three.
+ *
+ * The highlight is 4% white rather than a stronger value on purpose. It is a
+ * specular edge catching showroom lighting, not a gradient - anything more and
+ * the top of every card turns into a visible grey band.
+ *
+ * `interaction` is an opt-in second string for cards that are actually clickable.
+ * Those get a red hairline and a small lift on hover; a card that is not a link
+ * must not, because a hover that looks pressable on a static card is a promise
+ * the card does not keep.
+ */
+@utility card-edge {
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.04),
+    var(--shadow-sm);
+}
+
+@utility card-edge-interactive {
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.06),
+    var(--shadow-sm);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+
+  /* The border tints toward the brief's hover red rather than jumping to solid
+     `accent-500`. A card corner lit in full brand red is a loud edge on every
+     card at once, which is the "red everywhere" outcome the palette is trying to
+     avoid; a 42% mix reads as a warm edge that you notice on approach. */
+  &:hover {
+    border-color: color-mix(in oklab, var(--color-accent-400) 42%, var(--border-subtle));
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.09),
+      var(--shadow-md);
+    transform: translateY(-2px);
+  }
+
+  /* `focus-within` rather than `focus`, so a keyboard user tabbing to the card's
+     inner link gets the same affordance a mouse user gets by hovering it. The
+     stronger mix is the one place a full-strength red edge is correct: there is
+     no pointer to have hovered, so the state has to be unmistakable. */
+  &:focus-within {
+    border-color: color-mix(in oklab, var(--color-accent-400) 62%, var(--border-subtle));
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.09),
+      var(--shadow-md);
+  }
 }
 
 /**

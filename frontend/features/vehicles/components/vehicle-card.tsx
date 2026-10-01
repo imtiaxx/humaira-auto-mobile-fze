@@ -173,7 +173,12 @@ export function VehicleCard({
             // for a 300px tile. The 50vw/100vw figures are the tile's share of
             // a 1/2/3-column grid.
             sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-            className="size-full object-cover transition-transform duration-[var(--duration-slow)] ease-[var(--ease-standard)] group-hover:scale-[1.04]"
+            // `scale-[1.04]` on hover is the one motion on the card, and it is what makes a
+            // grid of tiles feel like objects on a showroom floor rather than
+            // thumbnails in a list. The brightness lift is 4% - enough to read as
+            // the picture catching light, not enough to wash out a pale car or
+            // clip the blacks of a night shot.
+            className="size-full object-cover transition-[transform,filter] duration-[var(--duration-slow)] ease-[var(--ease-standard)] group-hover:scale-[1.04] group-hover:brightness-[1.04]"
           />
         ) : (
           /*
