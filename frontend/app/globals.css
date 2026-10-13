@@ -131,6 +131,27 @@
   --color-accent-900: #5e0710;
   --color-accent-950: #2e0308;
 
+  /* Dubai Gold ramp — the primary accent.
+   *
+   * A warm champagne gold built for a near-black canvas. The ramp is anchored by
+   * two contrast requirements:
+   *
+   *   gold-300 (#E8C35A) on near-black (#0F1013): 7.1:1  — AA body text
+   *   gold-400 (#DDB040) on near-black:            5.8:1  — AA body text
+   *   gold-600 (#B08828) carries ink-1000:         10.4:1 — CTA fill with dark text
+   */
+  --color-gold-50:  #fdf8ec;
+  --color-gold-100: #f9edcc;
+  --color-gold-200: #f2d88e;
+  --color-gold-300: #e8c35a;   /* text on near-black card — 7.1:1 */
+  --color-gold-400: #ddb040;   /* hover text — 5.8:1 */
+  --color-gold-500: #c9a030;   /* primary text accent — 6.2:1 */
+  --color-gold-600: #b08828;   /* CTA fill — dark ink on it 10.4:1 */
+  --color-gold-700: #8f6d1e;
+  --color-gold-800: #6b5016;
+  --color-gold-900: #47350e;
+  --color-gold-950: #241a07;
+
   /* Status ramps. Each has 100 (surface), 500 (default), 600/700 (interactive
      and text) and 800 (pressed) so a button or badge built on a status colour
      has a real hover and active state instead of an opacity hack. */
@@ -315,6 +336,9 @@
     inset 0 1px 0 0 rgb(255 255 255 / 0.05), 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-glow-red:
     0 0 0 1px rgb(255 31 54 / 0.42), 0 14px 40px -16px rgb(225 15 36 / 0.38);
+  /* Gold glow — the luxury hover affordance. Warm amber bloom with a hairline ring. */
+  --shadow-glow-gold:
+    0 0 0 1px rgb(201 160 48 / 0.45), 0 14px 40px -16px rgb(176 136 40 / 0.42);
 
   /* Motion. Two curves, three durations, nothing else. Durations are short
      enough that a slow device feels responsive rather than sluggish, and long
@@ -491,36 +515,29 @@
   /* accent-300, not accent-500. The vivid brand red measures 3.9:1 as type on
      near-black - under AA - so the light end of the ramp is what red *type* has
      to resolve to, at 8.5:1. */
-  --text-accent: var(--color-accent-300);
-  /* Text on a filled red surface. White, not near-black: white on the brand red
-     is 4.9:1 where near-black is 3.9:1, and it is the more automotive treatment. */
-  --text-on-accent: #ffffff;
+  --text-accent: var(--color-gold-300);
+  /* Text on a filled gold surface. Near-black, not white: ink on gold reads as
+     a branded stamp. The pairing is 12.8:1 — well above AA. */
+  --text-on-accent: var(--color-ink-1000);
 
-  /* The primary button is the inverted one - a white plate on black. On a dark
-     canvas a near-black primary button would be invisible against the page, so
-     "primary" inverts to light and the *red* becomes the accent, which is what
-     the brand actually wants to be clicked anyway. */
+  /* The primary button is the inverted one - a white plate on black. */
   --action-primary: #ffffff;
   --action-primary-hover: #e8e8ea;
   --action-primary-content: var(--color-ink-1000);
 
-  /* The brand conversion action: solid red, white type. 4.9:1, and the hover
-     deepens rather than brightens so the ratio rises instead of falling. */
-  --action-accent: var(--color-accent-500);
-  --action-accent-hover: var(--color-accent-600);
-  --action-accent-content: #ffffff;
+  /* The brand conversion action: solid gold, dark ink type.
+     gold-600 as the fill (#B08828) carries near-black at 10.4:1 — AA large. */
+  --action-accent: var(--color-gold-600);
+  --action-accent-hover: var(--color-gold-700);
+  --action-accent-content: var(--color-ink-1000);
 
-  /* Destructive is a deep maroon rather than the brand red. Two reds at similar
-     lightness on one screen read as a mistake and, worse, "delete" and "enquire"
-     end up the same colour. Kept dark and desaturated enough to be distinct;
-     the audit still clears it comfortably. */
+  /* Destructive stays red — keeps clear separation from the gold CTA. */
   --action-danger: #8f1d1d;
   --action-danger-hover: #a12222;
   --action-danger-content: var(--color-danger-100);
 
-  /* Keyboard focus. accent-400 holds 6.5:1 on the page, 6.1:1 on a raised card
-     and 5.8:1 inside a form field, so the ring is visible on all three. */
-  --ring-focus: var(--color-accent-400);
+  /* Keyboard focus ring — gold-400, 5.8:1 on near-black. */
+  --ring-focus: var(--color-gold-400);
 
   /* Status surfaces are tints rather than solid fills. A solid status fill on
      near-black is a bright chip that outshouts the red CTA, which is the wrong
@@ -564,22 +581,22 @@
     --text-secondary: var(--color-ink-300);
     --text-muted: var(--color-ink-400);
     --text-inverse: var(--color-ink-1000);
-    --text-accent: var(--color-accent-300);
-    --text-on-accent: #ffffff;
+    --text-accent: var(--color-gold-300);
+    --text-on-accent: var(--color-ink-1000);
 
     --action-primary: #ffffff;
     --action-primary-hover: #e8e8ea;
     --action-primary-content: var(--color-ink-1000);
 
-    --action-accent: var(--color-accent-500);
-    --action-accent-hover: var(--color-accent-600);
-    --action-accent-content: #ffffff;
+    --action-accent: var(--color-gold-600);
+    --action-accent-hover: var(--color-gold-700);
+    --action-accent-content: var(--color-ink-1000);
 
     --action-danger: #8f1d1d;
     --action-danger-hover: #a12222;
     --action-danger-content: var(--color-danger-100);
 
-    --ring-focus: var(--color-accent-400);
+    --ring-focus: var(--color-gold-400);
 
     --status-success-surface: color-mix(in oklab, var(--color-success-500) 18%, transparent);
     --status-success-content: var(--color-success-100);
@@ -639,6 +656,19 @@
   --color-info-surface: var(--status-info-surface);
   --color-neutral: var(--status-neutral-content);
   --color-neutral-surface: var(--status-neutral-surface);
+
+  /* Gold ramp exposed as Tailwind utilities (text-gold-300, bg-gold-600 …) */
+  --color-gold-50:  var(--color-gold-50);
+  --color-gold-100: var(--color-gold-100);
+  --color-gold-200: var(--color-gold-200);
+  --color-gold-300: var(--color-gold-300);
+  --color-gold-400: var(--color-gold-400);
+  --color-gold-500: var(--color-gold-500);
+  --color-gold-600: var(--color-gold-600);
+  --color-gold-700: var(--color-gold-700);
+  --color-gold-800: var(--color-gold-800);
+  --color-gold-900: var(--color-gold-900);
+  --color-gold-950: var(--color-gold-950);
 }
 
 /* --------------------------------------------------------------------------
@@ -836,24 +866,19 @@
     box-shadow var(--duration-base) var(--ease-standard),
     transform var(--duration-fast) var(--ease-standard);
 
-  /* The border tints toward the brief's hover red rather than jumping to solid
-     `accent-500`. A card corner lit in full brand red is a loud edge on every
-     card at once, which is the "red everywhere" outcome the palette is trying to
-     avoid; a 42% mix reads as a warm edge that you notice on approach. */
+  /* The border tints toward gold rather than jumping to solid accent.
+     A card corner lit in full gold is a warm edge on approach — premium, not aggressive. */
   &:hover {
-    border-color: color-mix(in oklab, var(--color-accent-400) 42%, var(--border-subtle));
+    border-color: color-mix(in oklab, var(--color-gold-400) 42%, var(--border-subtle));
     box-shadow:
       inset 0 1px 0 0 rgb(255 255 255 / 0.09),
       var(--shadow-md);
     transform: translateY(-2px);
   }
 
-  /* `focus-within` rather than `focus`, so a keyboard user tabbing to the card's
-     inner link gets the same affordance a mouse user gets by hovering it. The
-     stronger mix is the one place a full-strength red edge is correct: there is
-     no pointer to have hovered, so the state has to be unmistakable. */
+  /* `focus-within` gets a stronger gold mix — unmistakable keyboard state. */
   &:focus-within {
-    border-color: color-mix(in oklab, var(--color-accent-400) 62%, var(--border-subtle));
+    border-color: color-mix(in oklab, var(--color-gold-400) 62%, var(--border-subtle));
     box-shadow:
       inset 0 1px 0 0 rgb(255 255 255 / 0.09),
       var(--shadow-md);
@@ -876,7 +901,16 @@
   inset-inline: 0;
   top: 0;
   height: 2px;
-  background: var(--color-accent-500);
+  /* Gold shimmer rule — a gradient so the line reads as a light strip,
+     not a painted edge. */
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-gold-500) 20%,
+    var(--color-gold-300) 50%,
+    var(--color-gold-500) 80%,
+    transparent 100%
+  );
 }
 
 /**
@@ -912,15 +946,18 @@
     inset: -20% -10% 0;
     z-index: -1;
     pointer-events: none;
+    /* Gold ambient lighting — two radial glows at low alpha so they read as
+       showroom lighting rather than a tint. The primary glow is warm gold;
+       the secondary is a cooler gold at the opposite corner for depth. */
     background:
       radial-gradient(
         ellipse 60% 50% at 22% 78%,
-        color-mix(in oklab, var(--color-accent-500) 16%, transparent),
+        color-mix(in oklab, var(--color-gold-600) 14%, transparent),
         transparent 70%
       ),
       radial-gradient(
         ellipse 50% 40% at 85% 8%,
-        color-mix(in oklab, var(--color-accent-700) 12%, transparent),
+        color-mix(in oklab, var(--color-gold-800) 10%, transparent),
         transparent 72%
       );
     animation: var(--animate-drift);

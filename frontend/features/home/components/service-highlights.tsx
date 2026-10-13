@@ -158,7 +158,7 @@ export function ServiceHighlights() {
                 */}
                 <span
                   aria-hidden="true"
-                  className="inline-flex size-10 items-center justify-center rounded-sm border border-line text-fg-accent"
+                  className="inline-flex size-10 items-center justify-center rounded-sm border border-gold-700/60 text-gold-400"
                 >
                   <Icon className="size-5" />
                 </span>
@@ -192,7 +192,7 @@ export function ServiceHighlights() {
         */}
         <Surface
           as="div"
-          className="mt-12 flex flex-col gap-6 rounded-card border-accent-500/40 bg-raised p-6 shadow-md sm:p-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10"
+          className="mt-12 flex flex-col gap-6 rounded-card border-gold-600/40 bg-raised p-6 shadow-md sm:p-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10"
         >
           <div className="flex max-w-2xl flex-col gap-2">
             <h3 className="text-h3 text-fg">Not sure which one applies?</h3>

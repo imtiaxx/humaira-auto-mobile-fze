@@ -153,7 +153,7 @@ export function WhatsAppCta({
  */
 export function WhatsAppFloat({ message }: { message?: string }) {
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-end p-4 sm:hidden">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-end p-4 sm:p-6">
       <div className="pointer-events-auto">
         <WhatsAppCta
           message={message}

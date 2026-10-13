@@ -70,8 +70,8 @@ export const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
    * the red glow do all the work for brightness instead.
    */
   accent:
-    "bg-action-accent text-action-accent-content shadow-[0_8px_24px_-10px_rgb(225_15_36/0.42)] " +
-    "hover:bg-action-accent-hover hover:shadow-[var(--shadow-glow-red)]",
+    "bg-action-accent text-action-accent-content shadow-[0_8px_24px_-10px_rgb(176_136_40/0.45)] " +
+    "hover:bg-action-accent-hover hover:shadow-[var(--shadow-glow-gold)]",
   /**
    * Supporting action that needs a visible surface but not emphasis.
    *

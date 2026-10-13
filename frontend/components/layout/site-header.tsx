@@ -45,11 +45,9 @@ export function SiteHeader() {
         // colour-wise and the border is doing all the work - which is why the
         // 1px line below is not decorative.
         "border-b border-line bg-page",
-        // A red line under the bar, and it is the one place on the site a red
-        // edge is unconditional rather than a response to the pointer. It reads as
-        // the brand's light strip and is what stops a black bar on a black page
-        // looking like a rendering failure.
-        "after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-accent-600/70",
+        // A gold shimmer line under the bar — the brand's signature luxury detail.
+        // Reads as the showroom's LED strip lighting catching metal.
+        "after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-[linear-gradient(90deg,transparent_0%,var(--color-gold-600)_20%,var(--color-gold-300)_50%,var(--color-gold-600)_80%,transparent_100%)]",
       ].join(" ")}
     >
       <Container className="flex h-16 items-center justify-between gap-4 lg:h-20">

@@ -93,9 +93,9 @@ export function CarCard({ car }: { car: ShowroomCar }) {
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-card border border-line bg-raised",
         "transition-[transform,border-color,box-shadow] duration-200 ease-[var(--ease-standard)]",
-        // The 4px lift and the red border, both on hover *and* on focus-within.
-        "hover:-translate-y-1 hover:border-accent-500 hover:shadow-[var(--shadow-glow-red)]",
-        "focus-within:-translate-y-1 focus-within:border-accent-500 focus-within:shadow-[var(--shadow-glow-red)]",
+        // Gold border glow on hover — premium showroom feel
+        "hover:-translate-y-1 hover:border-gold-500/70 hover:shadow-[0_0_0_1px_rgb(201_160_48/0.35),0_14px_40px_-16px_rgb(176_136_40/0.4)]",
+        "focus-within:-translate-y-1 focus-within:border-gold-500/70 focus-within:shadow-[0_0_0_1px_rgb(201_160_48/0.35),0_14px_40px_-16px_rgb(176_136_40/0.4)]",
       )}
     >
       {/*
@@ -163,7 +163,7 @@ export function CarCard({ car }: { car: ShowroomCar }) {
               href={car.href}
               className={cn(
                 "after:absolute after:inset-0 after:content-['']",
-                "transition-colors duration-200 group-hover:text-fg-accent group-focus-within:text-fg-accent",
+                "transition-colors duration-200 group-hover:text-gold-300 group-focus-within:text-gold-300",
               )}
             >
               {car.name}
